@@ -6,6 +6,7 @@ import { ArrowRight, Check, Bell, MapPin, AlertCircle, ScanFace, Lock, LogIn, Gl
 
 interface OnboardingProps {
     onComplete: (user: UserProfile) => void;
+    onSkip?: () => void;
 }
 
 export const COUNTRY_CODES = [
@@ -68,7 +69,7 @@ const Container: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     </div>
 );
 
-export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
+export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) => {
     const [isLoginMode, setIsLoginMode] = useState(false);
     const [step, setStep] = useState(1);
     const [error, setError] = useState<string | null>(null);
@@ -460,6 +461,12 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete }) => {
                     <p className="text-center text-sm text-gray-500">
                         Déjà inscrit ? <button onClick={() => setIsLoginMode(true)} className="text-brand-pink font-bold hover:underline">Se connecter</button>
                     </p>
+                )}
+
+                {onSkip && (
+                    <button onClick={onSkip} className="w-full text-center text-sm font-bold text-gray-500 hover:text-black py-2">
+                        Continuer sans compte
+                    </button>
                 )}
             </div>
         </Container>

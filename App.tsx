@@ -15,6 +15,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
+import { getUserPosition } from './services/location';
 import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart } from 'lucide-react';
 
 // Helper: Calculate distance in km
@@ -93,37 +94,27 @@ const App: React.FC = () => {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [manualAddress, setManualAddress] = useState("");
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationError, setLocationError] = useState("");
 
   // Splash Screen Timer & User Check
   useEffect(() => {
       const timer = setTimeout(() => {
           setShowSplash(false);
           const savedUser = localStorage.getItem('foodtrack_user');
-          if (!savedUser) {
-              setCurrentView(AppView.ONBOARDING);
-          } else {
+          if (savedUser) {
               const u = JSON.parse(savedUser);
               // Ensure history array exists for legacy data
               if (!u.history) u.history = [];
               setUser(u);
           }
-      }, 3000);
+      }, 1500);
       return () => clearTimeout(timer);
   }, []);
 
   // Initial Data Load
   useEffect(() => {
     const loadData = async () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-                },
-                (err) => console.log("Location error", err),
-                { enableHighAccuracy: true }
-            );
-        }
-
         const { trucks: newTrucks, sources: newSources } = await fetchFoodTrucksAgent();
         setAllTrucks(newTrucks);
         setDisplayedTrucks(newTrucks); 
@@ -177,26 +168,22 @@ const App: React.FC = () => {
           const distB = b.coordinates ? getDistance(location.lat, location.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
           return distA - distB;
       });
-      setDisplayedTrucks(sorted.slice(0, 3));
+      setDisplayedTrucks(sorted.slice(0, 5));
       setCurrentView(AppView.HOME);
   };
 
-  const handleGeolocationClick = () => {
-      if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                  const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                  setUserLocation(loc);
-                  setShowLocationModal(false);
-                  executeProximitySearch(loc);
-              },
-              (err) => {
-                  alert("Impossible de vous géolocaliser. Essayez de saisir une adresse.");
-              },
-              { enableHighAccuracy: true }
-          );
+  const handleGeolocationClick = async () => {
+      setLocationError("");
+      setIsLocating(true);
+      const r = await getUserPosition();
+      setIsLocating(false);
+      if (r.ok) {
+          const loc = { lat: r.lat, lng: r.lng };
+          setUserLocation(loc);
+          setShowLocationModal(false);
+          executeProximitySearch(loc);
       } else {
-          alert("Votre navigateur ne supporte pas la géolocalisation.");
+          setLocationError(r.message);
       }
   };
 
@@ -211,7 +198,7 @@ const App: React.FC = () => {
           setShowLocationModal(false);
           executeProximitySearch(coords);
       } else {
-          alert("Adresse introuvable. Essayez d'être plus précis (ex: 'Gare de Luxembourg').");
+          setLocationError("Adresse introuvable. Essayez d'être plus précis (ex : Gare de Luxembourg).");
       }
   };
 
@@ -236,7 +223,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (currentView) {
       case AppView.ONBOARDING:
-          return <Onboarding onComplete={handleRegistrationComplete} />;
+          return <Onboarding onComplete={handleRegistrationComplete} onSkip={() => setCurrentView(AppView.LANDING)} />;
       case AppView.LANDING:
         return (
             <div className="flex flex-col min-h-screen bg-white items-center justify-center p-6 relative overflow-hidden w-full">
@@ -253,7 +240,7 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="w-full max-w-sm space-y-4 mb-12 z-10 animate-slide-up" style={{animationDelay: '0.2s'}}>
-                    <p className="text-center font-display text-2xl text-brand-text mb-6">On mange comment ?</p>
+                    <p className="text-center font-display text-2xl text-brand-text mb-6">Où déjeuner ce midi ?</p>
 
                     <button 
                         onClick={handleShowAll}
@@ -277,7 +264,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="text-left">
                             <h3 className="font-bold text-lg text-brand-text">Autour de moi</h3>
-                            <p className="text-xs text-gray-400">Selon votre localisation</p>
+                            <p className="text-xs text-gray-400">Les 5 camions les plus proches</p>
                         </div>
                     </button>
                 </div>
@@ -357,7 +344,7 @@ const App: React.FC = () => {
         <Header 
             onNotificationsClick={() => setCurrentView(AppView.NOTIFICATIONS)} 
             onLogoClick={() => setCurrentView(AppView.LANDING)}
-            onProfileClick={() => setCurrentView(AppView.USER_PROFILE)}
+            onProfileClick={() => setCurrentView(user ? AppView.USER_PROFILE : AppView.ONBOARDING)}
             unreadCount={hasUnreadNotifications ? 1 : 0} 
             user={user}
         />
@@ -392,10 +379,11 @@ const App: React.FC = () => {
                           <Navigation size={20} />
                       </div>
                       <div className="text-left">
-                          <p className="font-bold text-brand-text">Me géolocaliser</p>
+                          <p className="font-bold text-brand-text">{isLocating ? "Localisation en cours…" : "Me géolocaliser"}</p>
                           <p className="text-xs text-gray-500">Utiliser mon GPS actuel</p>
                       </div>
                   </button>
+                  {locationError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl p-3 mb-2">{locationError}</p>}
 
                   <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
