@@ -1,0 +1,10 @@
+{
+  "name": "Food Track",
+  "description": "Le guide ultime des food trucks au Luxembourg. Suivez la piste de vos envies avec Food Track.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}

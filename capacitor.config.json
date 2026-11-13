@@ -1,0 +1,13 @@
+{
+  "appId": "com.foodtrack.app",
+  "appName": "Food Track",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}
