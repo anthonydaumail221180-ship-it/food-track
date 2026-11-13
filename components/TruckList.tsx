@@ -150,10 +150,10 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                                 {distance && <span className="ml-1 font-bold text-brand-orange">({distance}km)</span>}
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className="flex items-center text-yellow-400 bg-yellow-50 px-1.5 py-0.5 rounded-md">
+                                {truck.rating > 0 && (<div className="flex items-center text-yellow-400 bg-yellow-50 px-1.5 py-0.5 rounded-md">
                                     <Star size={12} fill="currentColor" />
                                     <span className="text-xs font-bold ml-0.5 text-yellow-700">{truck.rating}</span>
-                                </div>
+                                </div>)}
                                 <button 
                                     onClick={(e) => {
                                         e.stopPropagation();

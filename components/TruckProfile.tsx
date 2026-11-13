@@ -153,7 +153,7 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
             <div className="flex justify-between items-center py-2 rounded-2xl border-b border-gray-100 pb-6">
                 <div className="text-center flex-1 border-r border-gray-100">
                     <div className="flex items-center justify-center gap-1 font-bold text-xl text-brand-text">
-                        {truck.rating} <Star size={16} className="text-yellow-400 fill-yellow-400" />
+                        {truck.rating > 0 ? truck.rating : '–'} <Star size={16} className="text-yellow-400 fill-yellow-400" />
                     </div>
                     <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">Avis</div>
                 </div>

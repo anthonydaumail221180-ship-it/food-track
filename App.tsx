@@ -31,6 +31,14 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
     return R * c;
 }
 
+const QUARTIERS = [
+    { name: 'Kirchberg', lat: 49.6250, lng: 6.1600 },
+    { name: 'Gare', lat: 49.6000, lng: 6.1333 },
+    { name: 'Centre-ville', lat: 49.6103, lng: 6.1296 },
+    { name: 'Gasperich', lat: 49.5800, lng: 6.1200 },
+    { name: 'Hamm', lat: 49.6050, lng: 6.1780 },
+];
+
 // Floating Menu Component (Mobile Only Replacement for Bars)
 const FloatingMenu: React.FC<{ currentView: AppView, onViewChange: (v: AppView) => void }> = ({ currentView, onViewChange }) => {
     const [isOpen, setIsOpen] = useState(false);
@@ -384,6 +392,16 @@ const App: React.FC = () => {
                       </div>
                   </button>
                   {locationError && <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl p-3 mb-2">{locationError}</p>}
+                  <p className="text-xs text-gray-400 uppercase mb-2">Ou choisissez votre quartier</p>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                      {QUARTIERS.map(q => (
+                          <button key={q.name}
+                              onClick={() => { const loc = { lat: q.lat, lng: q.lng }; setUserLocation(loc); setShowLocationModal(false); executeProximitySearch(loc); }}
+                              className="px-4 py-2 rounded-full bg-gray-50 border border-gray-200 text-sm font-bold hover:border-brand-pink">
+                              {q.name}
+                          </button>
+                      ))}
+                  </div>
 
                   <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>

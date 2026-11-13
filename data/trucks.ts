@@ -1,7 +1,42 @@
-// ⚠️ EXEMPLES FICTIFS : remplacez-les par vos vrais food trucks.
-// days : 1=lundi ... 5=vendredi. from/to : horaires de service.
-export const TRUCKS = [
-  { id: '1', name: 'Exemple Gromper', cuisine: 'Luxembourgeois', description: 'À remplacer par un vrai camion.', locationName: 'Place Guillaume II', coordinates: { lat: 49.6103, lng: 6.1296 }, rating: 4.5, days: [1, 2, 3, 4, 5], from: '11:30', to: '14:00' },
-  { id: '2', name: 'Exemple Tacos', cuisine: 'Mexicain', description: 'À remplacer par un vrai camion.', locationName: 'Gare Centrale', coordinates: { lat: 49.6000, lng: 6.1333 }, rating: 4.5, days: [2, 4], from: '11:30', to: '14:00' },
-  { id: '3', name: 'Exemple Burger', cuisine: 'Américain', description: 'À remplacer par un vrai camion.', locationName: 'Kirchberg', coordinates: { lat: 49.6250, lng: 6.1600 }, rating: 4.5, days: [1, 3, 5], from: '11:45', to: '14:15' },
+// Vrais food trucks (sources : Paperjam « Food trucks : le meilleur de la rue » et Luxtoday).
+// Jours : 0=dimanche, 1=lundi ... 6=samedi. Sans from/to : créneau « midi » par défaut, à confirmer.
+export type Spot = { place: string; query: string; fallback: { lat: number; lng: number }; from?: string; to?: string };
+export type TruckData = { id: string; name: string; cuisine: string; description: string; phone?: string; schedule: Record<number, Spot> };
+
+const KIRCHBERG = { lat: 49.6250, lng: 6.1600 };
+const GARE = { lat: 49.6000, lng: 6.1333 };
+const HAMM = { lat: 49.6050, lng: 6.1780 };
+const GASPERICH = { lat: 49.5800, lng: 6.1200 };
+
+const steichen: Spot = { place: 'Rue Edward Steichen / rue Charles Bernhoeft, Kirchberg', query: 'Rue Edward Steichen, Kirchberg, Luxembourg', fallback: KIRCHBERG };
+const europe: Spot = { place: "Place de l'Europe, Kirchberg", query: "Place de l'Europe, Kirchberg, Luxembourg", fallback: KIRCHBERG };
+
+export const SOURCES = [
+  'https://paperjam.lu/article/food-trucks-le-meilleur-de-la-rue',
+  'https://luxtoday.lu/fr/knowledge/food-trucks-au-luxembourg-pizzas-burgers-gastronomie-nationale',
+];
+
+export const TRUCKS: TruckData[] = [
+  { id: 'tabor', name: 'Tabor Food Concept', cuisine: 'Éthiopien',
+    description: 'Cuisine éthiopienne : injera doro wot (poulet épicé sur galette de teff) et sélection végétarienne.',
+    schedule: {
+      1: europe, 3: europe,
+      2: { place: 'Giratoire boulevard Konrad Adenauer, Kirchberg', query: 'Boulevard Konrad Adenauer, Kirchberg, Luxembourg', fallback: KIRCHBERG },
+      4: steichen,
+      5: { place: '12 rue Erasme, Kirchberg', query: '12 Rue Erasme, Kirchberg, Luxembourg', fallback: KIRCHBERG },
+    } },
+  { id: 'maracas', name: 'Las Maracas', cuisine: 'Mexicain',
+    description: 'Tacos, quesadillas et cochinita pibil, par deux cuisinières mexicaines.',
+    schedule: {
+      1: { place: 'Rue du Fort Neipperg, gare', query: 'Rue du Fort Neipperg, Luxembourg', fallback: GARE },
+      2: { place: 'Giratoire rue Erasme / rue Léon Hengen, Kirchberg', query: 'Rue Léon Hengen, Kirchberg, Luxembourg', fallback: KIRCHBERG },
+      3: steichen,
+      5: { place: '19 rue Bitbourg, Hamm', query: '19 Rue Bitbourg, Hamm, Luxembourg', fallback: HAMM },
+    } },
+  { id: 'gingerhead', name: 'Gingerhead Burger', cuisine: 'Burgers', phone: '+352 20 33 19 45',
+    description: 'Burgers aux sauces maison.',
+    schedule: {
+      2: { place: '4 rue Robert Stumper, Gasperich (Rothschild)', query: '4 Rue Robert Stumper, Gasperich, Luxembourg', fallback: GASPERICH, from: '11:45', to: '13:30' },
+      5: { place: '4 rue Robert Stumper, Gasperich (Scheier et fils)', query: '4 Rue Robert Stumper, Gasperich, Luxembourg', fallback: GASPERICH, from: '11:45', to: '13:30' },
+    } },
 ];
