@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { truckImage } from '../services/truckImage';
 import { FoodTruck, MenuItem, CheckIn } from '../types';
 import { fetchTruckMenuAgent } from '../services/geminiService';
 import { MapPin, Star, Phone, Globe, Clock, ArrowLeft, Heart, Edit3, Utensils, Send, UserPlus } from 'lucide-react';
@@ -121,7 +122,7 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
         {/* Hero Image */}
         <div className="relative h-72">
             <img 
-                src={`https://picsum.photos/seed/${truck.id}/800/600`} 
+                src={truckImage(truck)} 
                 alt={truck.name} 
                 className="w-full h-full object-cover"
             />

@@ -1,7 +1,8 @@
 // Vrais food trucks (sources : Paperjam « Food trucks : le meilleur de la rue » et Luxtoday).
+// Photo : déposez le fichier dans public/trucks/ puis ajoutez image: '/trucks/nom.jpg' au camion.
 // Jours : 0=dimanche, 1=lundi ... 6=samedi. Sans from/to : créneau « midi » par défaut, à confirmer.
 export type Spot = { place: string; query: string; fallback: { lat: number; lng: number }; from?: string; to?: string };
-export type TruckData = { id: string; name: string; cuisine: string; description: string; phone?: string; schedule: Record<number, Spot> };
+export type TruckData = { id: string; name: string; cuisine: string; description: string; phone?: string; image?: string; schedule: Record<number, Spot> };
 
 const KIRCHBERG = { lat: 49.6250, lng: 6.1600 };
 const GARE = { lat: 49.6000, lng: 6.1333 };

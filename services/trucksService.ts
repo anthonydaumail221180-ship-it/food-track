@@ -33,7 +33,7 @@ export const fetchFoodTrucksAgent = async (): Promise<{ trucks: FoodTruck[]; sou
     const to = spot.to ?? '14:00';
     const isToday = offset === 0;
     trucks.push({
-      id: t.id, name: t.name, cuisine: t.cuisine, description: t.description, phone: t.phone,
+      id: t.id, name: t.name, cuisine: t.cuisine, description: t.description, phone: t.phone, imageUrl: t.image,
       locationName: spot.place,
       coordinates: await coords(spot),
       rating: 0,

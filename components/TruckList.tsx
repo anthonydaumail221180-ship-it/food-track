@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
+import { truckImage } from '../services/truckImage';
 import { FoodTruck, CheckIn } from '../types';
 import { MapPin, Star, Navigation, Heart, Filter, ArrowDownUp, ExternalLink, Clock } from 'lucide-react';
 import { AdBanner } from './AdBanner';
@@ -118,7 +119,7 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
             return (
                 <div key={truck.id} className="bg-white rounded-3xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-gray-100 flex gap-4 relative animate-slide-up group hover:border-brand-pink/30 hover:shadow-xl transition-all">
                     <img 
-                        src={`https://picsum.photos/seed/${truck.id}/200/200`} 
+                        src={truckImage(truck)} 
                         alt={truck.name} 
                         className="w-28 h-28 rounded-2xl object-cover flex-shrink-0 cursor-pointer shadow-sm group-hover:scale-105 transition-transform duration-500"
                         onClick={() => onTruckClick(truck)}
