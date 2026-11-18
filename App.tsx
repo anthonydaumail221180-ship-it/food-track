@@ -12,11 +12,15 @@ import { BrandLogo } from './components/BrandLogo';
 import { Onboarding } from './components/Onboarding';
 import { UserProfile } from './components/UserProfile';
 import { AdminDashboard } from './components/AdminDashboard';
+import { ReportTruck } from './components/ReportTruck';
+import { NewsFeed } from './components/NewsFeed';
+import { ModerationPanel } from './components/ModerationPanel';
+import { fetchCommunityTrucks } from './services/reportsService';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
 import { getUserPosition } from './services/location';
-import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart } from 'lucide-react';
+import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight } from 'lucide-react';
 
 // Helper: Calculate distance in km
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -46,9 +50,11 @@ const FloatingMenu: React.FC<{ currentView: AppView, onViewChange: (v: AppView) 
     // MENU ITEMS UPDATED - Profil removed, names updated
     const menuItems = [
         { view: AppView.HOME, icon: Utensils, label: "Miam" }, 
+        { view: AppView.FEED, icon: Newspaper, label: "Actu" },
         { view: AppView.SOCIAL, icon: Flame, label: "Taste" }, 
         { view: AppView.VOTE, icon: Heart, label: "Like" }, 
         { view: AppView.QUIZ, icon: Brain, label: "Tips" }, 
+        { view: AppView.REPORT, icon: Megaphone, label: "Signaler" },
     ];
 
     return (
@@ -59,7 +65,7 @@ const FloatingMenu: React.FC<{ currentView: AppView, onViewChange: (v: AppView) 
                         <button 
                             key={item.label}
                             onClick={() => { onViewChange(item.view); setIsOpen(false); }}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-full shadow-lg font-bold text-sm transition-all ${currentView === item.view ? 'bg-brand-pink text-white' : 'bg-white text-brand-text'}`}
+                            className={`flex items-center gap-3 pl-5 pr-4 py-3 rounded-full shadow-card font-bold text-sm transition-all backdrop-blur ${currentView === item.view ? 'bg-brand-gradient text-white shadow-glow' : 'bg-white/95 text-brand-text border border-brand-border'}`}
                         >
                             {item.label}
                             <item.icon size={18} />
@@ -69,7 +75,7 @@ const FloatingMenu: React.FC<{ currentView: AppView, onViewChange: (v: AppView) 
             )}
             <button 
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-transform active:scale-90 ${isOpen ? 'bg-gray-900 text-white rotate-90' : 'bg-brand-gradient text-white'}`}
+                className={`w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-transform active:scale-90 ${isOpen ? 'bg-brand-text text-white rotate-90' : 'bg-brand-gradient text-white shadow-glow'}`}
             >
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -86,6 +92,7 @@ const App: React.FC = () => {
   const [allTrucks, setAllTrucks] = useState<FoodTruck[]>([]);
   const [displayedTrucks, setDisplayedTrucks] = useState<FoodTruck[]>([]);
   const [sources, setSources] = useState<string[]>([]);
+  const [reportTrucks, setReportTrucks] = useState<FoodTruck[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<FoodTruck | null>(null);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -128,6 +135,9 @@ const App: React.FC = () => {
         setDisplayedTrucks(newTrucks); 
         setSources(newSources);
         setLoading(false);
+        const community = await fetchCommunityTrucks();
+        setReportTrucks(community);
+        setDisplayedTrucks([...community, ...newTrucks]);
     };
     loadData();
   }, []);
@@ -166,12 +176,12 @@ const App: React.FC = () => {
 
   // --- Filtering Logic for Landing Screen ---
   const handleShowAll = () => {
-      setDisplayedTrucks(allTrucks);
+      setDisplayedTrucks([...reportTrucks, ...allTrucks]);
       setCurrentView(AppView.HOME);
   };
 
   const executeProximitySearch = (location: {lat: number, lng: number}) => {
-      const sorted = [...allTrucks].sort((a, b) => {
+      const sorted = [...reportTrucks, ...allTrucks].sort((a, b) => {
           const distA = a.coordinates ? getDistance(location.lat, location.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
           const distB = b.coordinates ? getDistance(location.lat, location.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
           return distA - distB;
@@ -232,52 +242,77 @@ const App: React.FC = () => {
     switch (currentView) {
       case AppView.ONBOARDING:
           return <Onboarding onComplete={handleRegistrationComplete} onSkip={() => setCurrentView(AppView.LANDING)} />;
-      case AppView.LANDING:
+      case AppView.LANDING: {
+        const openNow = allTrucks.filter(t => t.isOpen).length;
         return (
-            <div className="flex flex-col min-h-screen bg-white items-center justify-center p-6 relative overflow-hidden w-full">
-                <div className="absolute top-[-10%] right-[-10%] w-64 h-64 bg-brand-orange/5 rounded-full blur-3xl"></div>
-                <div className="absolute bottom-[-10%] left-[-10%] w-64 h-64 bg-brand-pink/5 rounded-full blur-3xl"></div>
+            <div className="flex flex-col min-h-screen items-center justify-between p-6 relative overflow-hidden w-full">
+                <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-brand-orange/25 blur-3xl animate-float"></div>
+                <div className="absolute top-1/3 -left-28 w-72 h-72 rounded-full bg-brand-pink/20 blur-3xl animate-float" style={{animationDelay: '3s'}}></div>
+                <div className="absolute -bottom-24 right-0 w-72 h-72 rounded-full bg-brand-gold/25 blur-3xl animate-float" style={{animationDelay: '6s'}}></div>
 
-                <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm z-10">
-                    <div className="animate-slide-up">
-                        <BrandLogo size="xl" textClassName="text-5xl mt-6" />
+                <div className="flex-1 flex flex-col items-center justify-center w-full max-w-sm z-10 pt-10">
+                    <div className="animate-pop">
+                        <BrandLogo size="xl" textClassName="text-6xl mt-4 leading-tight" />
                     </div>
-                    <p className="text-brand-muted mt-4 font-medium tracking-widest text-xs uppercase animate-slide-up" style={{animationDelay: '0.1s'}}>
-                        Luxembourg Street Food
-                    </p>
+                    <p className="font-display text-2xl text-brand-text mt-3 animate-slide-up" style={{animationDelay: '0.15s'}}>Ta pause midi, sur roues</p>
+                    <p className="text-brand-muted mt-1 font-semibold tracking-[0.25em] text-[10px] uppercase animate-slide-up" style={{animationDelay: '0.2s'}}>Luxembourg · Gudden Appetit</p>
+                    {openNow > 0 && (
+                        <div className="mt-5 inline-flex items-center gap-2 bg-white/80 backdrop-blur border border-brand-border rounded-full px-4 py-1.5 shadow-card animate-slide-up" style={{animationDelay: '0.3s'}}>
+                            <span className="relative flex h-2.5 w-2.5"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-green opacity-60"></span><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-green"></span></span>
+                            <span className="text-xs font-bold text-brand-text">{openNow} food truck{openNow > 1 ? 's' : ''} en service maintenant</span>
+                        </div>
+                    )}
                 </div>
 
-                <div className="w-full max-w-sm space-y-4 mb-12 z-10 animate-slide-up" style={{animationDelay: '0.2s'}}>
-                    <p className="text-center font-display text-2xl text-brand-text mb-6">Où déjeuner ce midi ?</p>
-
+                <div className="w-full max-w-sm space-y-3 mb-8 z-10 stagger">
                     <button 
                         onClick={handleShowAll}
-                        className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-lg flex items-center gap-4 transition-transform active:scale-95 hover:border-brand-pink group"
+                        className="w-full bg-brand-gradient text-white rounded-3xl p-4 shadow-glow flex items-center gap-4 transition-transform active:scale-95 hover:scale-[1.01]"
                     >
-                        <div className="w-12 h-12 rounded-full bg-brand-gradient flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
-                            <Utensils size={20} />
+                        <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
+                            <Utensils size={22} />
                         </div>
-                        <div className="text-left">
-                            <h3 className="font-bold text-lg text-brand-text">Voir tout</h3>
-                            <p className="text-xs text-gray-400">Explorer la liste complète</p>
+                        <div className="text-left flex-1">
+                            <h3 className="font-bold text-lg leading-tight">Où déjeuner ce midi ?</h3>
+                            <p className="text-xs text-white/85">Voir tous les food trucks</p>
                         </div>
+                        <ArrowRight size={20} className="opacity-80" />
                     </button>
 
                     <button 
                         onClick={() => setShowLocationModal(true)}
-                        className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-lg flex items-center gap-4 transition-transform active:scale-95 hover:border-brand-orange group"
+                        className="w-full bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex items-center gap-4 transition-transform active:scale-95 hover:border-brand-orange"
                     >
-                        <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform">
-                            <MapPin size={20} />
+                        <div className="w-12 h-12 rounded-2xl bg-brand-text flex items-center justify-center text-white">
+                            <MapPin size={22} />
                         </div>
-                        <div className="text-left">
-                            <h3 className="font-bold text-lg text-brand-text">Autour de moi</h3>
-                            <p className="text-xs text-gray-400">Les 5 camions les plus proches</p>
+                        <div className="text-left flex-1">
+                            <h3 className="font-bold text-lg text-brand-text leading-tight">Autour de moi</h3>
+                            <p className="text-xs text-brand-muted">Les 5 camions les plus proches</p>
                         </div>
+                        <ArrowRight size={20} className="text-brand-muted" />
                     </button>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={() => setCurrentView(AppView.REPORT)}
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-green"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center"><Megaphone size={20} className="text-brand-green" /></div>
+                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Signaler un food truck</h3>
+                        </button>
+                        <button 
+                            onClick={() => setCurrentView(AppView.FEED)}
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-pink"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center"><Newspaper size={20} className="text-brand-pink" /></div>
+                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Fil d'actu</h3>
+                        </button>
+                    </div>
                 </div>
             </div>
         );
+      }
 
       case AppView.HOME:
         return <TruckList 
@@ -291,6 +326,13 @@ const App: React.FC = () => {
                   sources={sources}
                   history={user?.history || []}
                />;
+      case AppView.REPORT:
+        return <ReportTruck
+                  onBack={() => setCurrentView(AppView.LANDING)}
+                  onDone={async () => { const c = await fetchCommunityTrucks(); setReportTrucks(c); setDisplayedTrucks([...c, ...allTrucks]); setCurrentView(AppView.HOME); }}
+               />;
+      case AppView.FEED:
+        return <NewsFeed />;
       case AppView.SOCIAL:
         return <SocialWall 
                 publishedTrends={publishedTrends} 
@@ -333,11 +375,15 @@ const App: React.FC = () => {
     }
   };
 
-  const isFullScreen = [AppView.MAP_TRANSPORT, AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING].includes(currentView);
+  const isFullScreen = [AppView.MAP_TRANSPORT, AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING, AppView.REPORT].includes(currentView);
+
+  if (typeof window !== 'undefined' && window.location.hash === '#/admin') return <ModerationPanel />;
 
   if (showSplash) {
       return (
-          <div className="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center overflow-hidden">
+          <div className="fixed inset-0 bg-brand-bg z-[100] flex flex-col items-center justify-center overflow-hidden">
+              <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-brand-orange/20 blur-3xl animate-float"></div>
+              <div className="absolute -bottom-24 -left-16 w-72 h-72 rounded-full bg-brand-pink/20 blur-3xl animate-float" style={{animationDelay:"3s"}}></div>
               <div className="relative animate-zoom-in">
                 <BrandLogo size="xl" textClassName="text-5xl" />
               </div>
@@ -346,7 +392,7 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="bg-white min-h-screen font-sans text-brand-text relative">
+    <div className="min-h-screen font-sans text-brand-text relative">
       {/* Header: Fixed on all devices when not in fullscreen mode */}
       {!isFullScreen && (
         <Header 

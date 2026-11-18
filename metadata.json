@@ -1,6 +1,6 @@
 {
-  "name": "Food Track",
-  "description": "Le guide ultime des food trucks au Luxembourg. Suivez la piste de vos envies avec Food Track.",
+  "name": "LëtzTrack",
+  "description": "Le guide ultime des food trucks au Luxembourg. Suivez la piste de vos envies avec LëtzTrack.",
   "requestFramePermissions": [
     "geolocation",
     "camera",

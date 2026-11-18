@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="theme-color" content="#FFF8F0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <title>Food Track</title>
+    <title>LëtzTrack</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="Food Track" />
+    <meta name="apple-mobile-web-app-title" content="LëtzTrack" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=Lobster&display=swap" rel="stylesheet">
     <script>
@@ -22,10 +22,11 @@
             },
             colors: {
               brand: {
-                bg: '#FFFFFF',
-                text: '#262626',
-                muted: '#8E8E8E',
-                border: '#DBDBDB',
+                bg: '#FFF8F0',
+                text: '#2A1B2E',
+                muted: '#8A7F8C',
+                border: '#F1E3D3',
+                gold: '#FFB347',
                 card: '#FFFFFF',
                 orange: '#FF512F',
                 pink: '#DD2476',
@@ -34,7 +35,12 @@
                 red: '#ED4956',
               }
             },
+            boxShadow: {
+              card: '0 6px 24px -8px rgba(221,36,118,0.18), 0 2px 6px rgba(42,27,46,0.05)',
+              glow: '0 10px 30px -6px rgba(255,81,47,0.55)',
+            },
             backgroundImage: {
+              'brand-soft': 'linear-gradient(135deg, #FFF1E4 0%, #FFE3EC 100%)',
               'brand-gradient': 'linear-gradient(to right, #FF512F, #DD2476)',
               'brand-gradient-vertical': 'linear-gradient(to bottom, #FF512F, #DD2476)',
             },
@@ -42,6 +48,8 @@
               'zoom-in': 'zoomIn 2.5s ease-out forwards',
               'fade-out': 'fadeOut 0.5s ease-in forwards 2s',
               'slide-up': 'slideUp 0.5s ease-out forwards',
+              'float': 'float 9s ease-in-out infinite',
+              'pop': 'pop 0.4s cubic-bezier(.2,1.4,.4,1) forwards',
             },
             keyframes: {
               zoomIn: {
@@ -53,6 +61,14 @@
                 '0%': { opacity: '1' },
                 '100%': { opacity: '0', visibility: 'hidden' },
               },
+              float: {
+                '0%,100%': { transform: 'translate(0,0) scale(1)' },
+                '50%': { transform: 'translate(14px,-18px) scale(1.08)' },
+              },
+              pop: {
+                '0%': { transform: 'scale(.9)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
               slideUp: {
                 '0%': { transform: 'translateY(20px)', opacity: '0' },
                 '100%': { transform: 'translateY(0)', opacity: '1' },
@@ -63,6 +79,9 @@
       }
     </script>
     <style>
+      body { background: radial-gradient(1200px 500px at 100% -10%, rgba(255,81,47,.10), transparent 60%), radial-gradient(900px 500px at -10% 110%, rgba(221,36,118,.09), transparent 60%), #FFF8F0; background-attachment: fixed; }
+      .stagger > * { opacity: 0; animation: slideUp .55s ease-out forwards; }
+      .stagger > *:nth-child(2){animation-delay:.07s}.stagger > *:nth-child(3){animation-delay:.14s}.stagger > *:nth-child(4){animation-delay:.21s}.stagger > *:nth-child(5){animation-delay:.28s}
       /* Hide scrollbar for Chrome, Safari and Opera */
       ::-webkit-scrollbar {
         display: none;
@@ -87,7 +106,7 @@
 }
 </script>
 </head>
-  <body class="bg-brand-bg text-brand-text selection:bg-brand-pink selection:text-white">
+  <body class="text-brand-text selection:bg-brand-pink selection:text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

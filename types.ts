@@ -24,6 +24,7 @@ export interface FoodTruck {
   email?: string;
   hours?: string;
   menu?: MenuItem[];
+  status?: 'pending' | 'rejected'; // signalement utilisateur non encore validé (visible par son auteur seul)
 }
 
 export interface SocialPost {
@@ -132,5 +133,7 @@ export enum AppView {
   FAVORITES = 'FAVORITES',
   NOTIFICATIONS = 'NOTIFICATIONS',
   QUIZ = 'QUIZ',
+  REPORT = 'REPORT', // Signaler un food truck
+  FEED = 'FEED', // Fil d'actu
   ADMIN_DASHBOARD = 'ADMIN_DASHBOARD' 
 }

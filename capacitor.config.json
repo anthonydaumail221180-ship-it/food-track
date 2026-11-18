@@ -1,6 +1,6 @@
 {
   "appId": "com.foodtrack.app",
-  "appName": "Food Track",
+  "appName": "LëtzTrack",
   "webDir": "dist",
   "server": {
     "androidScheme": "https"
