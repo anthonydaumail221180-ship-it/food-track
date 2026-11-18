@@ -457,7 +457,7 @@ export const generateAvatarAgent = async (userPrompt: string): Promise<string | 
             contents: {
                 parts: [
                     {
-                        text: `Create a simple, flat vector art avatar sticker for a user of a Food Truck App called "Food Track".
+                        text: `Create a simple, flat vector art avatar sticker for a user of a Food Truck App called "LëtzTrack".
                         The style should be: Cute, illustrative, rounded, vibrant colors using Orange (#FF512F) and Pink (#DD2476) accents, on a pure WHITE background.
                         
                         Content Request from User: "${userPrompt}"

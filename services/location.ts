@@ -11,7 +11,7 @@ export const getUserPosition = (): Promise<GeoResult> =>
       (e) => resolve({
         ok: false,
         message: e.code === 1
-          ? "Localisation refusée. Sur iPhone : Réglages > Confidentialité et sécurité > Service de localisation (activé), puis Safari (sites web) ou Food Track > « En utilisant l'app ». Ou saisissez une adresse ci-dessous."
+          ? "Localisation refusée. Sur iPhone : Réglages > Confidentialité et sécurité > Service de localisation (activé), puis Safari (sites web) ou LëtzTrack > « En utilisant l'app ». Ou saisissez une adresse ci-dessous."
           : "Position introuvable pour le moment. Réessayez ou saisissez une adresse ci-dessous.",
       }),
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }

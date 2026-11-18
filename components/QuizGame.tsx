@@ -95,6 +95,10 @@ export const QuizGame: React.FC<QuizGameProps> = ({ onComplete }) => {
                 </div>
                 
                 <h1 className="text-3xl font-display text-brand-text mb-2">Food Tips & Quiz</h1>
+                <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 mb-4 w-full text-left">
+                    <p className="text-xs text-orange-900 leading-relaxed"><span className="font-bold">Tips, le concept :</span> chaque semaine, un quiz gourmand et des astuces pour déjeuner malin au Luxembourg (où venir, quand éviter la queue, quoi goûter en premier).</p>
+                    <p className="text-xs font-bold text-brand-pink mt-1">👩‍🍳 La recette est en cours de préparation.</p>
+                </div>
                 <p className="text-gray-500 text-sm mb-6 px-4 leading-relaxed">
                     Testez vos connaissances culinaires ! 
                     <br/>

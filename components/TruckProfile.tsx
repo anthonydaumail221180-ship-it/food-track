@@ -51,7 +51,7 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
       onCheckIn(newCheckIn);
 
       if (friendPhone) {
-          alert(`SMS simulé envoyé à ${friendPhone} : "Salut ${friendName} ! Je viens de manger ${selectedItem.name} chez ${truck.name}. Télécharge Food Track pour voir !"`);
+          alert(`SMS simulé envoyé à ${friendPhone} : "Salut ${friendName} ! Je viens de manger ${selectedItem.name} chez ${truck.name}. Télécharge LëtzTrack pour voir !"`);
       }
 
       setSelectedItem(null);

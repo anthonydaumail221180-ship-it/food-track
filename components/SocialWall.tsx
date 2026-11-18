@@ -27,7 +27,7 @@ export const SocialWall: React.FC<SocialWallProps> = ({ publishedTrends = [], on
     setPosts([
       {
         id: 'init-1',
-        author: 'FoodTrack Team',
+        author: 'LëtzTrack Team',
         isInfluencer: false,
         content: 'Bienvenue sur Taste ! Découvrez les tendances et partagez vos plats.',
         likes: 10,
@@ -100,6 +100,12 @@ export const SocialWall: React.FC<SocialWallProps> = ({ publishedTrends = [], on
                 ))}
              </div>
         )}
+
+        <div className="bg-gradient-to-r from-brand-orange/10 to-brand-pink/10 border border-brand-pink/20 rounded-2xl p-4 mb-6">
+            <p className="font-bold text-brand-text text-sm mb-1">🔥 Taste, le concept</p>
+            <p className="text-xs text-gray-600 leading-relaxed">Les tendances, les plats du moment et les bons plans street food du Luxembourg, racontés par la communauté et les influenceurs gourmands.</p>
+            <p className="text-xs font-bold text-brand-pink mt-2">👩‍🍳 La recette est en cours de préparation.</p>
+        </div>
 
         {/* Section 3: Feed Social */}
         <div className="space-y-6">

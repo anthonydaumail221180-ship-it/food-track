@@ -1,0 +1,2 @@
+Déposez ici les photos des food trucks (ex : tabor.jpg), puis ajoutez image: '/trucks/tabor.jpg' au camion dans data/trucks.ts.
+Demandez toujours l'accord de l'exploitant avant de publier sa photo.

@@ -70,31 +70,36 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
   }
 
   return (
-    <div className="space-y-4 pb-24 w-full">
+    <div className="space-y-4 pb-24 w-full max-w-6xl mx-auto">
       {/* Ad Banner */}
       <div className="mb-6">
           <AdBanner />
       </div>
 
+      <div className="px-1">
+        <h1 className="font-display text-4xl text-brand-text leading-none">Ce midi</h1>
+        <p className="text-sm text-brand-muted mt-1 capitalize">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {trucks.length} food truck{trucks.length > 1 ? 's' : ''}</p>
+      </div>
+
       {/* Filter Bar - Simplified: No Cuisines */}
-      <div className="sticky top-20 z-30 bg-white/95 backdrop-blur-sm py-3 border-b border-gray-50">
+      <div className="sticky top-16 z-30 bg-brand-bg/85 backdrop-blur-md py-3 border-b border-brand-border/60">
           <div className="flex flex-wrap items-center gap-2 justify-start">
             {/* Sort Controls */}
             <button 
                 onClick={() => setSortBy('default')}
-                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'default' ? 'bg-black text-white border-black' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'default' ? 'bg-brand-text text-white border-brand-text shadow-card' : 'bg-white text-gray-500 border-brand-border'}`}
             >
                 <Filter size={12} /> Tous
             </button>
             <button 
                 onClick={() => setSortBy('distance')}
-                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'distance' ? 'bg-brand-blue text-white border-brand-blue' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'distance' ? 'bg-brand-gradient text-white border-transparent shadow-glow' : 'bg-white text-gray-500 border-brand-border'}`}
             >
                 <ArrowDownUp size={12} /> Distance
             </button>
             <button 
                 onClick={() => setSortBy('visited')}
-                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'visited' ? 'bg-brand-pink text-white border-brand-pink' : 'bg-gray-50 text-gray-500 border-gray-200'}`}
+                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'visited' ? 'bg-brand-gradient text-white border-transparent shadow-glow' : 'bg-white text-gray-500 border-brand-border'}`}
             >
                 <Clock size={12} /> Récents
             </button>
@@ -117,11 +122,11 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
             const lastVisit = history.find(h => h.truckId === truck.id);
 
             return (
-                <div key={truck.id} className="bg-white rounded-3xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.05)] border border-gray-100 flex gap-4 relative animate-slide-up group hover:border-brand-pink/30 hover:shadow-xl transition-all">
+                <div key={truck.id} className="bg-white rounded-[28px] p-4 shadow-card border border-brand-border/70 flex gap-4 relative animate-slide-up group hover:-translate-y-0.5 hover:shadow-glow/30 transition-all">
                     <img 
                         src={truckImage(truck)} 
                         alt={truck.name} 
-                        className="w-28 h-28 rounded-2xl object-cover flex-shrink-0 cursor-pointer shadow-sm group-hover:scale-105 transition-transform duration-500"
+                        className="w-28 h-28 rounded-3xl object-cover flex-shrink-0 cursor-pointer shadow-card ring-2 ring-white"
                         onClick={() => onTruckClick(truck)}
                     />
                     <div className="flex-1 flex flex-col justify-between">
@@ -130,9 +135,15 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                                 <h3 className="font-bold text-xl text-brand-text leading-tight line-clamp-1">{truck.name}</h3>
                             </div>
                             <div className="flex gap-2 items-center mt-1.5">
+                                {truck.status ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-50 text-amber-700">
+                                        {truck.status === 'pending' ? 'En attente de validation' : 'Non retenu'}
+                                    </span>
+                                ) : (
                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${truck.isOpen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                                     {truck.isOpen ? 'Service' : 'Fermé'}
                                 </span>
+                                )}
                                 <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide truncate">{truck.cuisine}</span>
                             </div>
                             <p className="text-xs text-gray-400 line-clamp-2 mt-2 leading-relaxed">{truck.description}</p>
@@ -160,7 +171,7 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                                         e.stopPropagation();
                                         onNavigate(truck);
                                     }}
-                                    className="bg-gray-50 text-gray-400 p-2 rounded-xl hover:bg-brand-gradient hover:text-white transition"
+                                    className="bg-brand-bg text-brand-pink p-2 rounded-xl hover:bg-brand-gradient hover:text-white transition"
                                     title="Itinéraire"
                                 >
                                     <Navigation size={16} />

@@ -189,7 +189,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
                         <BrandLogo size="lg" />
                     </div>
                     
-                    <h2 className="text-2xl font-display text-brand-text text-center mb-6">Food Track : Connexion</h2>
+                    <h2 className="text-2xl font-display text-brand-text text-center mb-6">LëtzTrack : Connexion</h2>
 
                     {error && (
                         <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
@@ -316,7 +316,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
                 {/* STEP 2: PROFILE INFO */}
                 {step === 2 && (
                     <div className="animate-slide-up space-y-4">
-                        <h2 className="text-2xl font-display text-brand-text text-center mb-2">Rejoignez Food Track</h2>
+                        <h2 className="text-2xl font-display text-brand-text text-center mb-2">Rejoignez LëtzTrack</h2>
                         
                         <div className="grid grid-cols-2 gap-4">
                             <input 
@@ -385,7 +385,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
                 {/* STEP 3: AVATAR */}
                 {step === 3 && (
                     <div className="animate-slide-up text-center flex flex-col h-full">
-                        <h2 className="text-2xl font-display text-brand-text mb-2">Avatar Food Track</h2>
+                        <h2 className="text-2xl font-display text-brand-text mb-2">Avatar LëtzTrack</h2>
                         <p className="text-gray-400 text-sm mb-6">Quelle est votre personnalité culinaire ?</p>
 
                         <div className="grid grid-cols-5 gap-3 mx-auto pb-4">

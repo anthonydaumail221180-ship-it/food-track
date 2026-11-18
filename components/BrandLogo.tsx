@@ -70,7 +70,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       {/* The Text Logo */}
       {showText && (
         <h1 className={`font-display bg-brand-gradient bg-clip-text text-transparent drop-shadow-sm tracking-wide ${layout === 'vertical' ? 'mt-2' : 'ml-3'} ${textClassName}`}>
-            Food Track
+            LëtzTrack
         </h1>
       )}
     </div>

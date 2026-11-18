@@ -1,9 +1,9 @@
 {
- "name": "Food Track",
- "short_name": "Food Track",
+ "name": "LëtzTrack",
+ "short_name": "LëtzTrack",
  "start_url": "/",
  "display": "standalone",
- "background_color": "#FFFFFF",
+ "background_color": "#FFF8F0",
  "theme_color": "#FF512F",
  "icons": [
   {

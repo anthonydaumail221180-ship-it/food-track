@@ -17,7 +17,7 @@ export const Header: React.FC<HeaderProps> = ({ onNotificationsClick, onLogoClic
 
   return (
     // CHANGED: Removed 'hidden md:flex' and added 'fixed w-full' to make it visible on mobile and sticky
-    <header className="flex bg-white/95 backdrop-blur-sm px-4 md:px-6 py-3 shadow-[0_1px_10px_rgba(0,0,0,0.03)] fixed top-0 left-0 right-0 z-50 border-b border-gray-50 justify-between items-center h-16 transition-all">
+    <header className="flex bg-brand-bg/80 backdrop-blur-md px-4 md:px-6 py-3 fixed top-0 left-0 right-0 z-50 border-b border-brand-border/70 justify-between items-center h-16 transition-all">
       <div className="flex justify-between items-center w-full">
         <button 
             onClick={onLogoClick}

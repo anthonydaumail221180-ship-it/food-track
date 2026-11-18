@@ -9,13 +9,21 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 let cache: Record<string, { lat: number; lng: number }> = {};
 try { cache = JSON.parse(localStorage.getItem('ft_geo') || '{}'); } catch { /* ignore */ }
 
-// Adresse -> coordonnées (OpenStreetMap), mémorisées sur l'appareil ; repli sur le quartier
-const coords = async (s: Spot) => {
-  if (cache[s.query]) return cache[s.query];
-  await sleep(1100); // politesse envers le service gratuit
-  const c = await geocodeAddressAgent(s.query);
-  if (c) { cache[s.query] = c; try { localStorage.setItem('ft_geo', JSON.stringify(cache)); } catch { /* ignore */ } }
-  return c || s.fallback;
+// Coordonnées affichées tout de suite : mémorisées sur l'appareil, sinon repli sur le quartier.
+const coords = (s: Spot) => cache[s.query] || s.fallback;
+
+// En arrière-plan : adresse -> coordonnées précises (OpenStreetMap), une requête par seconde,
+// mémorisées sur l'appareil pour les prochaines ouvertures (l'écran ne attend pas).
+let warming = false;
+const warmCache = async () => {
+  if (warming) return;
+  warming = true;
+  const queries = Array.from(new Set(TRUCKS.flatMap(t => Object.values(t.schedule).map(s => s.query)))).filter(q => !cache[q]);
+  for (const q of queries) {
+    await sleep(1100); // politesse envers le service gratuit
+    const c = await geocodeAddressAgent(q);
+    if (c) { cache[q] = c; try { localStorage.setItem('ft_geo', JSON.stringify(cache)); } catch { /* ignore */ } }
+  }
 };
 
 export const fetchFoodTrucksAgent = async (): Promise<{ trucks: FoodTruck[]; sources: string[] }> => {
@@ -35,11 +43,12 @@ export const fetchFoodTrucksAgent = async (): Promise<{ trucks: FoodTruck[]; sou
     trucks.push({
       id: t.id, name: t.name, cuisine: t.cuisine, description: t.description, phone: t.phone, imageUrl: t.image,
       locationName: spot.place,
-      coordinates: await coords(spot),
+      coordinates: coords(spot),
       rating: 0,
       hours: `${isToday ? '' : DAYS[day] + ' · '}${spot.from ? `${from} - ${to}` : 'Midi (horaires à confirmer)'}`,
       isOpen: isToday && mins >= toMin(from) && mins <= toMin(to),
     });
   }
+  void warmCache();
   return { trucks, sources: SOURCES };
 };
