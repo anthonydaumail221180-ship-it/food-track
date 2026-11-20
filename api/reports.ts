@@ -7,11 +7,16 @@ const KEY = process.env.SUPABASE_SERVICE_KEY;
 const ADMIN = process.env.ADMIN_TOKEN;
 
 const sb = async (path: string, init: any = {}) => {
-  const r = await fetch(`${URL_}/rest/v1/${path}`, {
+  const url = `${URL_}/rest/v1/${path}`;
+  const r = await fetch(url, {
     ...init,
     headers: { apikey: KEY as string, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', ...(init.headers || {}) },
   });
-  if (!r.ok) throw new Error('db');
+  if (!r.ok) {
+    const body = await r.text().catch(() => '<no body>');
+    console.error(`[supabase] ${r.status} ${r.statusText} on ${url} :: ${body.slice(0, 500)}`);
+    throw new Error('db');
+  }
   return r.json();
 };
 
@@ -31,7 +36,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PUBLIC_COLS = 'id,name,lat,lng,address,stars,photo,ts';
 
 export default async function handler(req: any, res: any) {
-  if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });
+  if (!URL_ || !KEY) {
+    console.error(`[reports] config missing: URL=${!!URL_} KEY=${!!KEY}`);
+    return res.status(503).json({ error: 'not_configured' });
+  }
   try {
     if (req.method === 'GET') {
       const q = req.query || {};
@@ -79,7 +87,8 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok: true });
     }
     return res.status(405).end();
-  } catch {
+  } catch (e: any) {
+    console.error(`[reports] handler crash: ${e?.message || e}`);
     return res.status(500).json({ error: 'server' });
   }
 }

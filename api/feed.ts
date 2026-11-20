@@ -4,11 +4,16 @@ const KEY = process.env.SUPABASE_SERVICE_KEY;
 const ADMIN = process.env.ADMIN_TOKEN;
 
 const sb = async (path: string, init: any = {}) => {
-  const r = await fetch(`${URL_}/rest/v1/${path}`, {
+  const url = `${URL_}/rest/v1/${path}`;
+  const r = await fetch(url, {
     ...init,
     headers: { apikey: KEY as string, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json', Prefer: 'return=representation', ...(init.headers || {}) },
   });
-  if (!r.ok) throw new Error('db');
+  if (!r.ok) {
+    const body = await r.text().catch(() => '<no body>');
+    console.error(`[supabase] ${r.status} ${r.statusText} on ${url} :: ${body.slice(0, 500)}`);
+    throw new Error('db');
+  }
   return r.json();
 };
 
@@ -25,7 +30,10 @@ const isAdmin = (req: any) => {
 };
 
 export default async function handler(req: any, res: any) {
-  if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });
+  if (!URL_ || !KEY) {
+    console.error(`[feed] config missing: URL=${!!URL_} KEY=${!!KEY}`);
+    return res.status(503).json({ error: 'not_configured' });
+  }
   try {
     if (req.method === 'GET') return res.status(200).json(await sb('posts?order=ts.desc&limit=50&select=id,kind,title,body,ts'));
     if (req.method === 'POST') {
@@ -37,7 +45,8 @@ export default async function handler(req: any, res: any) {
       return res.status(201).json({ ok: true });
     }
     return res.status(405).end();
-  } catch {
+  } catch (e: any) {
+    console.error(`[feed] handler crash: ${e?.message || e}`);
     return res.status(500).json({ error: 'server' });
   }
 }
