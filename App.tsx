@@ -15,7 +15,9 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { ReportTruck } from './components/ReportTruck';
 import { NewsFeed } from './components/NewsFeed';
 import { ModerationPanel } from './components/ModerationPanel';
+import { TruckPortal } from './components/TruckPortal';
 import { fetchCommunityTrucks } from './services/reportsService';
+import { fetchLiveTrucks, LiveTruck } from './services/truckPortal';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
@@ -111,11 +113,18 @@ const App: React.FC = () => {
       setToast(msg);
       window.setTimeout(() => setToast(null), 3000);
   };
-  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() =>
-      typeof window !== 'undefined' && window.location.hash === '#/admin'
+  // Routage hash : #/admin → modération, #/truck/<token> → portail food truck
+  const parseHash = (hash: string): { route: 'admin' | 'truck' | 'app'; token?: string } => {
+      if (hash === '#/admin') return { route: 'admin' };
+      const m = hash.match(/^#\/truck\/([A-Za-z0-9_-]{24,64})$/);
+      if (m) return { route: 'truck', token: m[1] };
+      return { route: 'app' };
+  };
+  const [route, setRoute] = useState<{ route: 'admin' | 'truck' | 'app'; token?: string }>(() =>
+      typeof window !== 'undefined' ? parseHash(window.location.hash) : { route: 'app' }
   );
   useEffect(() => {
-      const onHash = () => setIsAdminRoute(window.location.hash === '#/admin');
+      const onHash = () => setRoute(parseHash(window.location.hash));
       window.addEventListener('hashchange', onHash);
       return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -150,19 +159,43 @@ const App: React.FC = () => {
       return () => clearTimeout(timer);
   }, []);
 
-  // Initial Data Load - charge trucks + signalements en parallèle, un seul rendu, finally garanti
+  // Convertit un truck LIVE (BDD + emplacement actif) en FoodTruck affichable
+  const liveTruckToFoodTruck = (t: LiveTruck): FoodTruck | null => {
+      if (!t.live_location) return null;
+      const until = t.live_location.open_until ? new Date(t.live_location.open_until) : null;
+      const untilStr = until ? until.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+      return {
+          id: `live-${t.id}`,
+          name: t.name,
+          cuisine: t.cuisine || 'Cuisine',
+          description: t.description || '',
+          locationName: t.live_location.address,
+          coordinates: { lat: t.live_location.lat, lng: t.live_location.lng },
+          rating: 0,
+          imageUrl: t.photo_url || undefined,
+          isOpen: true,
+          hours: untilStr ? `En service · jusqu'à ${untilStr}` : 'En service',
+          phone: t.phone || undefined,
+          website: t.website || undefined,
+      };
+  };
+
+  // Initial Data Load - charge trucks + signalements + LIVE en parallèle, un seul rendu, finally garanti
   useEffect(() => {
     const loadData = async () => {
         try {
-            const [truckResult, community] = await Promise.all([
+            const [truckResult, community, live] = await Promise.all([
                 fetchFoodTrucksAgent(),
                 fetchCommunityTrucks(),
+                fetchLiveTrucks(),
             ]);
             const { trucks: newTrucks, sources: newSources } = truckResult;
+            const liveAsFoodTrucks = live.map(liveTruckToFoodTruck).filter((x): x is FoodTruck => x !== null);
             setAllTrucks(newTrucks);
             setSources(newSources);
             setReportTrucks(community);
-            setDisplayedTrucks([...community, ...newTrucks]);
+            // Ordre : LIVE d'abord (premium), puis signalements communautaires, puis statiques
+            setDisplayedTrucks([...liveAsFoodTrucks, ...community, ...newTrucks]);
         } catch (err) {
             console.error('Erreur chargement initial:', err);
         } finally {
@@ -408,7 +441,8 @@ const App: React.FC = () => {
 
   const isFullScreen = [AppView.MAP_TRANSPORT, AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING, AppView.REPORT].includes(currentView);
 
-  if (isAdminRoute) return <ModerationPanel />;
+  if (route.route === 'admin') return <ModerationPanel />;
+  if (route.route === 'truck' && route.token) return <TruckPortal token={route.token} />;
 
   if (showSplash) {
       return (
