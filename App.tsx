@@ -95,6 +95,7 @@ const App: React.FC = () => {
   const [displayedTrucks, setDisplayedTrucks] = useState<FoodTruck[]>([]);
   const [sources, setSources] = useState<string[]>([]);
   const [reportTrucks, setReportTrucks] = useState<FoodTruck[]>([]);
+  const [liveTrucks, setLiveTrucks] = useState<FoodTruck[]>([]);
   const [selectedTruck, setSelectedTruck] = useState<FoodTruck | null>(null);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -194,6 +195,7 @@ const App: React.FC = () => {
             setAllTrucks(newTrucks);
             setSources(newSources);
             setReportTrucks(community);
+            setLiveTrucks(liveAsFoodTrucks);
             // Ordre : LIVE d'abord (premium), puis signalements communautaires, puis statiques
             setDisplayedTrucks([...liveAsFoodTrucks, ...community, ...newTrucks]);
         } catch (err) {
@@ -239,18 +241,20 @@ const App: React.FC = () => {
   };
 
   // --- Filtering Logic for Landing Screen ---
+  // Les LIVE (BDD + emplacement actif) sont toujours en tête : ils représentent les partenaires actifs.
   const handleShowAll = () => {
-      setDisplayedTrucks([...reportTrucks, ...allTrucks]);
+      setDisplayedTrucks([...liveTrucks, ...reportTrucks, ...allTrucks]);
       setCurrentView(AppView.HOME);
   };
 
   const executeProximitySearch = (location: {lat: number, lng: number}) => {
-      const sorted = [...reportTrucks, ...allTrucks].sort((a, b) => {
+      // Les LIVE restent en tête (partenaires = priorité), puis les 5 plus proches parmi le reste
+      const rest = [...reportTrucks, ...allTrucks].sort((a, b) => {
           const distA = a.coordinates ? getDistance(location.lat, location.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
           const distB = b.coordinates ? getDistance(location.lat, location.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
           return distA - distB;
       });
-      setDisplayedTrucks(sorted.slice(0, 5));
+      setDisplayedTrucks([...liveTrucks, ...rest.slice(0, 5)]);
       setCurrentView(AppView.HOME);
   };
 
@@ -307,7 +311,7 @@ const App: React.FC = () => {
       case AppView.ONBOARDING:
           return <Onboarding onComplete={handleRegistrationComplete} onSkip={() => setCurrentView(AppView.LANDING)} />;
       case AppView.LANDING: {
-        const openNow = allTrucks.filter(t => t.isOpen).length;
+        const openNow = allTrucks.filter(t => t.isOpen).length + liveTrucks.length;
         return (
             <div className="flex flex-col min-h-screen items-center justify-between p-6 relative overflow-hidden w-full">
                 <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-brand-orange/25 blur-3xl animate-float"></div>
