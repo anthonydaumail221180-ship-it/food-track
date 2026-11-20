@@ -14,9 +14,13 @@ const sb = async (path: string, init: any = {}) => {
 
 const isAdmin = (req: any) => {
   const t = String(req.headers['x-admin-token'] || '');
-  if (!ADMIN || t.length !== ADMIN.length) return false;
-  let d = 0;
-  for (let i = 0; i < t.length; i++) d |= t.charCodeAt(i) ^ ADMIN.charCodeAt(i);
+  if (!ADMIN) return false;
+  // Comparaison en temps constant qui ne fuit PAS la longueur du secret
+  const len = Math.max(t.length, ADMIN.length);
+  let d = t.length ^ ADMIN.length;
+  for (let i = 0; i < len; i++) {
+    d |= (t.charCodeAt(i) || 0) ^ (ADMIN.charCodeAt(i) || 0);
+  }
   return d === 0;
 };
 

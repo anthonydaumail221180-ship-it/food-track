@@ -9,7 +9,11 @@ const KEY = 'letztrack_my_reports';
 const DAY = 24 * 3600 * 1000;
 
 const loadMine = (): MyReport[] => {
-  try { return (JSON.parse(localStorage.getItem(KEY) || '[]') as MyReport[]).filter(r => Date.now() - r.ts < DAY); } catch { return []; }
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (!Array.isArray(raw)) return [];
+    return (raw as MyReport[]).filter(r => r && typeof r.ts === 'number' && Date.now() - r.ts < DAY);
+  } catch { return []; }
 };
 const saveMine = (l: MyReport[]) => {
   try { localStorage.setItem(KEY, JSON.stringify(l.slice(0, 5))); }

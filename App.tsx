@@ -97,10 +97,28 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null);
   const [favorites, setFavorites] = useState<string[]>(() => {
-      const saved = localStorage.getItem('foodtrack_favs');
-      return saved ? JSON.parse(saved) : [];
+      try {
+          const saved = localStorage.getItem('foodtrack_favs');
+          const parsed = saved ? JSON.parse(saved) : [];
+          return Array.isArray(parsed) ? parsed : [];
+      } catch {
+          return [];
+      }
   });
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+      setToast(msg);
+      window.setTimeout(() => setToast(null), 3000);
+  };
+  const [isAdminRoute, setIsAdminRoute] = useState<boolean>(() =>
+      typeof window !== 'undefined' && window.location.hash === '#/admin'
+  );
+  useEffect(() => {
+      const onHash = () => setIsAdminRoute(window.location.hash === '#/admin');
+      window.addEventListener('hashchange', onHash);
+      return () => window.removeEventListener('hashchange', onHash);
+  }, []);
   
   // Social / Admin State
   const [publishedTrends, setPublishedTrends] = useState<TrendItem[]>([]);
@@ -116,28 +134,40 @@ const App: React.FC = () => {
   useEffect(() => {
       const timer = setTimeout(() => {
           setShowSplash(false);
-          const savedUser = localStorage.getItem('foodtrack_user');
-          if (savedUser) {
-              const u = JSON.parse(savedUser);
-              // Ensure history array exists for legacy data
-              if (!u.history) u.history = [];
-              setUser(u);
+          try {
+              const savedUser = localStorage.getItem('foodtrack_user');
+              if (savedUser) {
+                  const u = JSON.parse(savedUser);
+                  // Ensure history array exists for legacy data
+                  if (!u.history) u.history = [];
+                  setUser(u);
+              }
+          } catch {
+              // Donnée corrompue : on nettoie pour éviter un crash au prochain démarrage
+              try { localStorage.removeItem('foodtrack_user'); } catch { /* ignore */ }
           }
       }, 1500);
       return () => clearTimeout(timer);
   }, []);
 
-  // Initial Data Load
+  // Initial Data Load - charge trucks + signalements en parallèle, un seul rendu, finally garanti
   useEffect(() => {
     const loadData = async () => {
-        const { trucks: newTrucks, sources: newSources } = await fetchFoodTrucksAgent();
-        setAllTrucks(newTrucks);
-        setDisplayedTrucks(newTrucks); 
-        setSources(newSources);
-        setLoading(false);
-        const community = await fetchCommunityTrucks();
-        setReportTrucks(community);
-        setDisplayedTrucks([...community, ...newTrucks]);
+        try {
+            const [truckResult, community] = await Promise.all([
+                fetchFoodTrucksAgent(),
+                fetchCommunityTrucks(),
+            ]);
+            const { trucks: newTrucks, sources: newSources } = truckResult;
+            setAllTrucks(newTrucks);
+            setSources(newSources);
+            setReportTrucks(community);
+            setDisplayedTrucks([...community, ...newTrucks]);
+        } catch (err) {
+            console.error('Erreur chargement initial:', err);
+        } finally {
+            setLoading(false);
+        }
     };
     loadData();
   }, []);
@@ -148,8 +178,9 @@ const App: React.FC = () => {
 
   // --- Onboarding Logic ---
   const handleRegistrationComplete = (newUser: UserProfileType) => {
-      setUser({...newUser, history: []});
-      localStorage.setItem('foodtrack_user', JSON.stringify({...newUser, history: []}));
+      const userWithHistory = { ...newUser, history: [] };
+      setUser(userWithHistory);
+      try { localStorage.setItem('foodtrack_user', JSON.stringify(userWithHistory)); } catch { /* ignore */ }
       setCurrentView(AppView.LANDING);
   };
 
@@ -164,14 +195,14 @@ const App: React.FC = () => {
       if (!user) return;
       const updatedUser = { ...user, history: [checkIn, ...user.history] };
       setUser(updatedUser);
-      localStorage.setItem('foodtrack_user', JSON.stringify(updatedUser));
-      alert("Miam validé ! Ajouté à votre historique.");
+      try { localStorage.setItem('foodtrack_user', JSON.stringify(updatedUser)); } catch { /* ignore */ }
+      showToast("Miam validé ! Ajouté à votre historique.");
   };
 
   // --- Admin Logic ---
   const handlePublishTrend = (trend: TrendItem) => {
       setPublishedTrends(prev => [trend, ...prev]);
-      alert("Tendance publiée sur Taste !");
+      showToast("Tendance publiée sur Taste !");
   };
 
   // --- Filtering Logic for Landing Screen ---
@@ -342,7 +373,7 @@ const App: React.FC = () => {
         return <VotingBooth />;
       case AppView.QUIZ:
         return <QuizGame onComplete={(s) => {
-            alert(`Vous avez marqué ${s} points !`);
+            showToast(`Vous avez marqué ${s} points !`);
             setCurrentView(AppView.SOCIAL);
         }} />;
       case AppView.MAP_TRANSPORT:
@@ -377,7 +408,7 @@ const App: React.FC = () => {
 
   const isFullScreen = [AppView.MAP_TRANSPORT, AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING, AppView.REPORT].includes(currentView);
 
-  if (typeof window !== 'undefined' && window.location.hash === '#/admin') return <ModerationPanel />;
+  if (isAdminRoute) return <ModerationPanel />;
 
   if (showSplash) {
       return (
@@ -412,6 +443,13 @@ const App: React.FC = () => {
       {/* Mobile Floating Navigation (Replaces Bottom Bar) */}
       {!isFullScreen && currentView !== AppView.LANDING && (
           <FloatingMenu currentView={currentView} onViewChange={setCurrentView} />
+      )}
+
+      {/* Toast (remplace alert() bloquant) */}
+      {toast && (
+          <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[110] bg-brand-text text-white px-5 py-3 rounded-full shadow-2xl text-sm font-bold animate-slide-up max-w-[90vw] text-center">
+              {toast}
+          </div>
       )}
 
       {/* Location Choice Modal */}

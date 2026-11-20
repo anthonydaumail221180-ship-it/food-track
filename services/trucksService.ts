@@ -18,11 +18,15 @@ let warming = false;
 const warmCache = async () => {
   if (warming) return;
   warming = true;
-  const queries = Array.from(new Set(TRUCKS.flatMap(t => Object.values(t.schedule).map(s => s.query)))).filter(q => !cache[q]);
-  for (const q of queries) {
-    await sleep(1100); // politesse envers le service gratuit
-    const c = await geocodeAddressAgent(q);
-    if (c) { cache[q] = c; try { localStorage.setItem('ft_geo', JSON.stringify(cache)); } catch { /* ignore */ } }
+  try {
+    const queries = Array.from(new Set(TRUCKS.flatMap(t => Object.values(t.schedule).map(s => s.query)))).filter(q => !cache[q]).slice(0, 10);
+    for (const q of queries) {
+      await sleep(1100); // politesse envers le service gratuit
+      const c = await geocodeAddressAgent(q);
+      if (c) { cache[q] = c; try { localStorage.setItem('ft_geo', JSON.stringify(cache)); } catch { /* ignore */ } }
+    }
+  } finally {
+    warming = false;
   }
 };
 

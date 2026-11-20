@@ -11,21 +11,36 @@ interface ReportTruckProps {
 
 const DAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
 
+// Taille max avant décodage : 12 Mo (iPhone HEIC moyen passe, les monstres sont refusés tôt)
+const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
+
 // Réduit la photo pour qu'elle tienne dans la mémoire de l'appareil
 const compress = (file: File): Promise<string> =>
   new Promise((resolve) => {
+    if (!file || file.size > MAX_PHOTO_BYTES) return resolve('');
     const url = URL.createObjectURL(file);
     const img = new Image();
+    const cleanup = () => { try { URL.revokeObjectURL(url); } catch { /* ignore */ } };
+    // Garde-fou : si le décodage prend >15s on abandonne (ex. HEIC qui ne décode pas)
+    const timeoutId = window.setTimeout(() => { cleanup(); resolve(''); }, 15000);
     img.onload = () => {
-      const k = Math.min(1, 640 / Math.max(img.width, img.height));
-      const c = document.createElement('canvas');
-      c.width = Math.round(img.width * k);
-      c.height = Math.round(img.height * k);
-      c.getContext('2d')?.drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url);
-      resolve(c.toDataURL('image/jpeg', 0.7));
+      window.clearTimeout(timeoutId);
+      try {
+        const k = Math.min(1, 640 / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * k);
+        c.height = Math.round(img.height * k);
+        const ctx = c.getContext('2d');
+        if (!ctx) { cleanup(); return resolve(''); }
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        cleanup();
+        resolve(c.toDataURL('image/jpeg', 0.7));
+      } catch {
+        cleanup();
+        resolve('');
+      }
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(''); };
+    img.onerror = () => { window.clearTimeout(timeoutId); cleanup(); resolve(''); };
     img.src = url;
   });
 
@@ -125,7 +140,13 @@ export const ReportTruck: React.FC<ReportTruckProps> = ({ onBack, onDone }) => {
       <p className="text-sm font-bold mt-5 mb-1">Photo (facultatif)</p>
       <label className="flex items-center gap-3 p-3 border border-dashed border-gray-300 rounded-xl cursor-pointer text-sm text-gray-500">
         <Camera size={20} /> {photo ? 'Photo ajoutée ✓ (toucher pour changer)' : 'Ajouter une photo'}
-        <input type="file" accept="image/*" className="hidden" onChange={async e => { const f = e.target.files?.[0]; setPhoto(f ? await compress(f) : ''); }} />
+        <input type="file" accept="image/*" className="hidden" onChange={async e => {
+          const f = e.target.files?.[0];
+          if (!f) { setPhoto(''); return; }
+          const data = await compress(f);
+          if (!data) { setError("Impossible de lire cette photo (format non pris en charge ou trop lourde). Essayez une autre image."); setPhoto(''); }
+          else { setError(''); setPhoto(data); }
+        }} />
       </label>
       {photo && <img src={photo} alt="" className="mt-2 w-24 h-24 object-cover rounded-xl" />}
 
