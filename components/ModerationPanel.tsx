@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { adminFetchPending, adminDecide, adminPostNews, PendingReport } from '../services/reportsService';
-import { adminCreateTruck, adminListTrucks, adminDiscoverTrucks, AdminTruckRow, DiscoveredTruck } from '../services/truckPortal';
+import { adminCreateTruck, adminListTrucks, adminDiscoverTrucks, adminFetchDashboard, adminSetUserRole, AdminTruckRow, DiscoveredTruck, AdminStats, AdminUserRow } from '../services/truckPortal';
 
 // Page privée : ouvrez  votre-site/#/admin  puis saisissez votre code. Le serveur vérifie le code à chaque action.
 export const ModerationPanel: React.FC = () => {
@@ -72,6 +72,17 @@ export const ModerationPanel: React.FC = () => {
     await loadTrucks();
   };
 
+  // Dashboard (stats + users)
+  const [stats, setStats] = useState<AdminStats | null>(null);
+  const [users, setUsers] = useState<AdminUserRow[]>([]);
+
+  const loadDashboard = async (t = token) => {
+    const r = await adminFetchDashboard(t);
+    if (r === 'unauthorized' || r === 'error') return;
+    setStats(r.stats);
+    setUsers(r.users);
+  };
+
   const load = async (t = token) => {
     setMsg('');
     const r = await adminFetchPending(t);
@@ -79,6 +90,14 @@ export const ModerationPanel: React.FC = () => {
     if (r === 'error') { setMsg('Erreur de connexion au serveur.'); return; }
     sessionStorage.setItem('lt_admin', t);
     setList(r);
+    loadDashboard(t); // charge en parallèle
+  };
+
+  const toggleAdmin = async (userId: string, currentlyAdmin: boolean) => {
+    if (!window.confirm(currentlyAdmin ? 'Retirer les droits admin ?' : 'Promouvoir en admin ?')) return;
+    const ok = await adminSetUserRole(token, userId, !currentlyAdmin);
+    if (ok) { setMsg('Rôle mis à jour.'); loadDashboard(); }
+    else setMsg('Échec de la mise à jour.');
   };
   const decide = async (id: string, s: 'approved' | 'rejected') => {
     if (await adminDecide(token, id, s)) { setList(l => (l || []).filter(x => x.id !== id)); setMsg(s === 'approved' ? 'Validé : le camion est visible et annoncé dans le fil d\'actu.' : 'Refusé.'); }
@@ -100,6 +119,20 @@ export const ModerationPanel: React.FC = () => {
         </div>
       ) : (
         <>
+          {/* === Dashboard stats === */}
+          {stats && (
+            <div className="mb-5">
+              <div className="grid grid-cols-3 gap-2">
+                <StatCard label="Food trucks" value={stats.trucks_total} sub={`${stats.trucks_live} en LIVE`} accent="bg-brand-orange/10 text-brand-orange" />
+                <StatCard label="Utilisateurs" value={stats.users_total} sub={`${stats.users_active_now} actifs`} accent="bg-brand-pink/10 text-brand-pink" />
+                <StatCard label="Signalements" value={stats.reports_pending} sub="en attente" accent="bg-brand-blue/10 text-brand-blue" />
+                <StatCard label="Partenaires" value={stats.owners_total} sub={`${stats.owners_connected_ever} connectés`} accent="bg-green-50 text-green-700" />
+                <StatCard label="Admins" value={stats.users_admin} sub="dans l'équipe" accent="bg-amber-50 text-amber-700" />
+                <StatCard label="Actus" value={stats.posts_total} sub="publiées" accent="bg-brand-text/10 text-brand-text" />
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-between items-center mb-3">
             <h2 className="font-bold">En attente de validation ({list.length})</h2>
             <button onClick={() => load()} className="text-xs text-brand-blue font-semibold">Actualiser</button>
@@ -178,6 +211,31 @@ export const ModerationPanel: React.FC = () => {
             </button>
           </div>
 
+          {/* === Utilisateurs === */}
+          <h2 className="font-bold mt-8 mb-2">👤 Utilisateurs ({users.length})</h2>
+          <div className="space-y-2">
+            {users.length === 0 && <p className="text-sm text-gray-400 bg-white rounded-2xl p-5 border border-gray-100">Aucun utilisateur.</p>}
+            {users.map(u => (
+              <div key={u.id} className="bg-white rounded-2xl p-3 border border-gray-100 flex items-center justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-brand-text flex items-center gap-2">
+                    {u.first_name || u.nickname || '—'}
+                    {u.is_admin && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 uppercase">admin</span>}
+                    {u.active_now && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 uppercase">en ligne</span>}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate">{u.email}</p>
+                  <p className="text-[10px] text-gray-400">Inscrit : {new Date(u.created_at).toLocaleDateString('fr-FR')}{u.last_login_at ? ' · dernier login : ' + new Date(u.last_login_at).toLocaleDateString('fr-FR') : ''}</p>
+                </div>
+                <button
+                  onClick={() => toggleAdmin(u.id, u.is_admin)}
+                  className={`text-xs font-bold px-3 py-2 rounded-lg whitespace-nowrap ${u.is_admin ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}
+                >
+                  {u.is_admin ? 'Retirer admin' : 'Promouvoir'}
+                </button>
+              </div>
+            ))}
+          </div>
+
           {discovered.length > 0 && (
             <div className="mt-3 space-y-3">
               {discovered.map((s, i) => (
@@ -206,3 +264,12 @@ export const ModerationPanel: React.FC = () => {
     </div>
   );
 };
+
+// Petit pavé stat pour le dashboard admin
+const StatCard: React.FC<{ label: string; value: number | string; sub?: string; accent: string }> = ({ label, value, sub, accent }) => (
+  <div className="bg-white rounded-2xl p-3 border border-gray-100">
+    <p className={`text-[9px] uppercase tracking-widest font-bold ${accent.split(' ')[1]} mb-1`}>{label}</p>
+    <p className="text-2xl font-display text-brand-text leading-none">{value}</p>
+    {sub && <p className="text-[10px] text-gray-500 mt-1">{sub}</p>}
+  </div>
+);

@@ -235,12 +235,16 @@ const App: React.FC = () => {
               knownLocations: t.known_locations,
           };
       }
+      // Pas en LIVE : on utilise les coordonnées par défaut (géocodage approximatif de la zone principale)
+      // pour que le bouton "Y aller" fonctionne quand même.
+      const hasDefaultCoords = typeof t.default_lat === 'number' && typeof t.default_lng === 'number';
       return {
           id: `db-${t.id}`,
           name: t.name,
           cuisine: t.cuisine || 'Cuisine',
           description: t.description || '',
-          locationName: t.known_locations || 'Emplacements variables',
+          locationName: t.default_address || t.known_locations || 'Emplacements variables',
+          coordinates: hasDefaultCoords ? { lat: t.default_lat as number, lng: t.default_lng as number } : undefined,
           rating: 0,
           imageUrl: t.photo_url || undefined,
           isOpen: false,

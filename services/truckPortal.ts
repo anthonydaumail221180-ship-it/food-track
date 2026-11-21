@@ -33,6 +33,9 @@ export interface LiveTruck extends TruckProfile {
   opening_hours?: string;
   schedule?: string;
   known_locations?: string;
+  default_lat?: number | null;
+  default_lng?: number | null;
+  default_address?: string | null;
   live_location: (Omit<TruckLocation, 'id' | 'truck_id' | 'status' | 'created_at'> & { last_pinged_at?: string }) | null;
 }
 
@@ -146,6 +149,40 @@ export const adminListTrucks = async (token: string): Promise<AdminTruckRow[] | 
     if (r.status === 401) return 'unauthorized';
     return r.ok ? await r.json() : 'error';
   } catch { return 'error'; }
+};
+
+export interface AdminStats {
+  trucks_total: number;
+  trucks_geocoded: number;
+  trucks_live: number;
+  owners_total: number;
+  owners_connected_ever: number;
+  users_total: number;
+  users_admin: number;
+  users_active_now: number;
+  reports_pending: number;
+  reports_approved: number;
+  posts_total: number;
+}
+export interface AdminUserRow {
+  id: string; email: string; first_name: string; nickname: string;
+  is_admin: boolean; created_at: string; last_login_at: string | null;
+  active_now: boolean;
+}
+export const adminFetchDashboard = async (token: string): Promise<{ stats: AdminStats; users: AdminUserRow[] } | 'unauthorized' | 'error'> => {
+  try {
+    const r = await fetch('/api/admin-truck?stats=1', { headers: { 'x-admin-token': token } });
+    if (r.status === 401) return 'unauthorized';
+    return r.ok ? await r.json() : 'error';
+  } catch { return 'error'; }
+};
+export const adminSetUserRole = async (token: string, userId: string, makeAdmin: boolean): Promise<boolean> => {
+  try {
+    const r = await fetch(`/api/admin-truck?action=${makeAdmin ? 'promote' : 'demote'}&user_id=${encodeURIComponent(userId)}`, {
+      headers: { 'x-admin-token': token },
+    });
+    return r.ok;
+  } catch { return false; }
 };
 
 export const adminCreateTruck = async (

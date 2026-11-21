@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { UserProfile as UserProfileType } from '../types';
 import { Edit2, MapPin, Bell, LogOut, ArrowLeft, Save, X, Camera, ShieldCheck, Globe, Check, UserPlus } from 'lucide-react';
 import { COUNTRY_CODES, FOOD_AVATARS, LANGUAGES } from './Onboarding';
+import { updateMe } from '../services/userAuth';
 
 interface UserProfileProps {
     user: UserProfileType;
@@ -38,34 +39,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
         return <span className={className}>{avatarString}</span>;
     };
 
-    const handleSave = () => {
-        const fullPhone = `${editData.phonePrefix} ${editData.phoneNumber}`;
-        
-        const allUsersRaw = localStorage.getItem('foodtrack_all_users');
-        if (allUsersRaw) {
-            const allUsers: UserProfileType[] = JSON.parse(allUsersRaw);
-            const updatedList = allUsers.map(u => {
-                if (u.email === user.email) { 
-                    return {
-                        ...u,
-                        firstName: editData.firstName,
-                        lastName: editData.lastName,
-                        email: editData.email,
-                        phone: fullPhone,
-                        nickname: editData.nickname,
-                        avatarId: editData.avatarId,
-                        language: editData.language
-                    };
-                }
-                return u;
-            });
-            localStorage.setItem('foodtrack_all_users', JSON.stringify(updatedList));
-            
-            const updatedUser = updatedList.find(u => u.email === editData.email);
-            if (updatedUser) {
-                localStorage.setItem('foodtrack_user', JSON.stringify(updatedUser));
-                window.location.reload(); 
-            }
+    const handleSave = async () => {
+        const fullPhone = `${editData.phonePrefix} ${editData.phoneNumber}`.trim();
+        // Appel API vers /api/user?action=update (vraie BDD)
+        const updated = await updateMe({
+            firstName: editData.firstName,
+            lastName: editData.lastName,
+            phone: fullPhone,
+            nickname: editData.nickname,
+            avatarId: editData.avatarId,
+            language: editData.language,
+        } as any);
+        if (updated) {
+            // Rafraîchit la page pour recharger le profil complet
+            window.location.reload();
         }
         setIsEditing(false);
     };

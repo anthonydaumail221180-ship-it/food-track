@@ -70,6 +70,53 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === 'GET') {
+      const q = req.query || {};
+      // Mode "stats" : renvoie le dashboard admin complet
+      if (q.stats === '1') {
+        const nowIso = new Date().toISOString();
+        const [trucks, owners, users, sessions, reports, posts, locationsOpen] = await Promise.all([
+          sb('trucks?select=id,name,cuisine,default_lat,default_lng,created_at'),
+          sb('truck_owners?select=id,truck_id,email,last_login_at,created_at'),
+          sb('app_users?select=id,email,first_name,nickname,is_admin,created_at,last_login_at&order=created_at.desc'),
+          sb(`user_sessions?expires_at=gt.${nowIso}&select=user_id`),
+          sb('reports?select=id,status'),
+          sb('posts?select=id,kind'),
+          sb(`truck_locations?status=eq.open&open_until=gt.${nowIso}&select=truck_id,last_pinged_at`),
+        ]);
+        const activeUserIds = new Set(sessions.map((s: any) => s.user_id));
+        return res.status(200).json({
+          stats: {
+            trucks_total: trucks.length,
+            trucks_geocoded: trucks.filter((t: any) => t.default_lat !== null).length,
+            trucks_live: locationsOpen.length,
+            owners_total: owners.length,
+            owners_connected_ever: owners.filter((o: any) => o.last_login_at).length,
+            users_total: users.length,
+            users_admin: users.filter((u: any) => u.is_admin).length,
+            users_active_now: activeUserIds.size,
+            reports_pending: reports.filter((r: any) => r.status === 'pending').length,
+            reports_approved: reports.filter((r: any) => r.status === 'approved').length,
+            posts_total: posts.length,
+          },
+          users: users.map((u: any) => ({
+            id: u.id, email: u.email, first_name: u.first_name, nickname: u.nickname,
+            is_admin: u.is_admin, created_at: u.created_at, last_login_at: u.last_login_at,
+            active_now: activeUserIds.has(u.id),
+          })),
+        });
+      }
+
+      // Mode "role" : promote / demote un user admin
+      if (q.action === 'promote' || q.action === 'demote') {
+        const uid = String(q.user_id || '');
+        if (!uid) return res.status(400).json({ error: 'user_id required' });
+        const [updated] = await sb(`app_users?id=eq.${uid}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ is_admin: q.action === 'promote' }),
+        });
+        return res.status(200).json({ user: updated });
+      }
+
       // Liste tous les trucks + leurs owners (sans révéler le token aux lecteurs anonymes)
       const trucks = await sb('trucks?order=created_at.desc&select=*');
       const owners = await sb('truck_owners?select=id,truck_id,email,secret_token,last_login_at,created_at');
