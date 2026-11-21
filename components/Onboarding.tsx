@@ -348,31 +348,11 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar md:max-h-[400px]">
                 
-                {/* STEP 1: LANGUAGE SELECTION */}
+                {/* STEP 1: PROFILE INFO (en premier : le plus important commercialement) */}
                 {step === 1 && (
-                     <div className="animate-slide-up space-y-4 text-center">
-                        <h2 className="text-2xl font-display text-brand-text mb-2">Bienvenue / Moien !</h2>
-                        <p className="text-gray-400 text-sm mb-6">Choisissez votre langue préférée.</p>
-                        
-                        <div className="grid grid-cols-2 gap-3">
-                            {LANGUAGES.map((lang) => (
-                                <button
-                                    key={lang.code}
-                                    onClick={() => setFormData({...formData, language: lang.code})}
-                                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.language === lang.code ? 'border-brand-pink bg-pink-50 shadow-sm' : 'border-gray-100 bg-white hover:border-brand-orange'}`}
-                                >
-                                    <span className="text-3xl mb-2">{lang.flag}</span>
-                                    <span className={`text-sm ${formData.language === lang.code ? 'font-bold text-brand-text' : 'text-gray-500'}`}>{lang.label}</span>
-                                </button>
-                            ))}
-                        </div>
-                     </div>
-                )}
-
-                {/* STEP 2: PROFILE INFO */}
-                {step === 2 && (
                     <div className="animate-slide-up space-y-4">
                         <h2 className="text-2xl font-display text-brand-text text-center mb-2">Rejoignez LëtzTrack</h2>
+                        <p className="text-gray-400 text-sm text-center mb-4">Créez votre compte en 30 secondes.</p>
                         
                         <div className="grid grid-cols-2 gap-4">
                             <input 
@@ -426,9 +406,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
                         </div>
                         
                         <div className="relative">
-                            <input 
-                                type="password" 
-                                placeholder="Mot de passe"
+                            <input
+                                type="password"
+                                placeholder="Mot de passe (6 car. min)"
                                 className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none transition-colors pl-10"
                                 value={formData.password}
                                 onChange={e => setFormData({...formData, password: e.target.value})}
@@ -436,6 +416,26 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
                              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         </div>
                     </div>
+                )}
+
+                {/* STEP 2: LANGUE */}
+                {step === 2 && (
+                     <div className="animate-slide-up space-y-4 text-center">
+                        <h2 className="text-2xl font-display text-brand-text mb-2">Dans quelle langue ?</h2>
+                        <p className="text-gray-400 text-sm mb-6">Choisissez votre langue préférée pour l'app.</p>
+                        <div className="grid grid-cols-2 gap-3">
+                            {LANGUAGES.map((lang) => (
+                                <button
+                                    key={lang.code}
+                                    onClick={() => setFormData({...formData, language: lang.code})}
+                                    className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center transition-all ${formData.language === lang.code ? 'border-brand-pink bg-pink-50 shadow-sm' : 'border-gray-100 bg-white hover:border-brand-orange'}`}
+                                >
+                                    <span className="text-3xl mb-2">{lang.flag}</span>
+                                    <span className={`text-sm ${formData.language === lang.code ? 'font-bold text-brand-text' : 'text-gray-500'}`}>{lang.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                     </div>
                 )}
 
                 {/* STEP 3: AVATAR */}
@@ -505,9 +505,9 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
             {/* Footer Actions */}
             <div className="mt-8 z-10 space-y-4 w-full">
-                <button 
+                <button
                     onClick={handleRegistrationNext}
-                    disabled={step === 2 && !isValidStep2}
+                    disabled={step === 1 && !isValidStep2}
                     className="w-full bg-brand-gradient text-white py-3 rounded-xl font-bold text-lg shadow-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {step === 4 ? "C'est parti !" : "Suivant"} <ArrowRight size={20} />

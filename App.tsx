@@ -27,6 +27,7 @@ import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, Use
 import { TasteHistory } from './components/TasteHistory';
 import { NavChoiceModal } from './components/NavChoiceModal';
 import { NavTarget } from './services/mapsNavigation';
+import { AppTour } from './components/AppTour';
 
 // Helper: Calculate distance in km
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -118,6 +119,8 @@ const App: React.FC = () => {
       setToast(msg);
       window.setTimeout(() => setToast(null), 3000);
   };
+  // Tour guidé : s'affiche après la première inscription OU sur demande via le bouton "?"
+  const [showTour, setShowTour] = useState(false);
   // Routage hash : #/admin → modération, #/truck/<token> → portail food truck
   const parseHash = (hash: string): { route: 'admin' | 'truck' | 'app'; token?: string } => {
       if (hash === '#/admin') return { route: 'admin' };
@@ -303,6 +306,11 @@ const App: React.FC = () => {
       setUser(userWithHistory);
       try { localStorage.setItem('foodtrack_user', JSON.stringify(userWithHistory)); } catch { /* ignore */ }
       setCurrentView(AppView.LANDING);
+      // Affiche automatiquement le tour guidé si pas encore vu
+      try {
+          const seen = localStorage.getItem('foodtrack_tour_seen');
+          if (!seen) setShowTour(true);
+      } catch { /* ignore */ }
   };
 
   const handleLogout = () => {
@@ -595,6 +603,21 @@ const App: React.FC = () => {
       {!isFullScreen && currentView !== AppView.LANDING && (
           <FloatingMenu currentView={currentView} onViewChange={setCurrentView} />
       )}
+
+      {/* Bouton "?" flottant pour rouvrir le tour guidé - toujours visible sauf en modales/onboarding */}
+      {!isFullScreen && currentView !== AppView.LANDING && (
+          <button
+              onClick={() => setShowTour(true)}
+              className="fixed bottom-6 left-6 z-40 w-11 h-11 rounded-full bg-white border border-brand-border shadow-card text-brand-text hover:border-brand-orange md:hidden flex items-center justify-center font-display text-xl"
+              aria-label="Rouvrir le tour guidé"
+              title="Comment utiliser l'app ?"
+          >
+              ?
+          </button>
+      )}
+
+      {/* Tour guidé : automatique après inscription + rappelable via le "?" */}
+      {showTour && <AppTour onClose={() => setShowTour(false)} />}
 
       {/* Modal "Y aller" : choix d'appli de nav externe (Plan / Google Maps / mobiliteit.lu) */}
       <NavChoiceModal
