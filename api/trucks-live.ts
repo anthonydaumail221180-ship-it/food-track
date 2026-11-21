@@ -29,7 +29,7 @@ export default async function handler(req: any, res: any) {
     const trucks = await sb('trucks?order=updated_at.desc&select=id,name,cuisine,description,photo_url,phone,instagram,facebook,website,updated_at');
     const nowIso = new Date().toISOString();
     // Emplacements actifs : status open ET open_until > now
-    const locations = await sb(`truck_locations?status=eq.open&open_until=gt.${nowIso}&order=created_at.desc&select=truck_id,lat,lng,address,open_from,open_until`);
+    const locations = await sb(`truck_locations?status=eq.open&open_until=gt.${nowIso}&order=created_at.desc&select=truck_id,lat,lng,address,open_from,open_until,last_pinged_at`);
     // Garde seulement le dernier par truck
     const latestByTruck: Record<string, any> = {};
     for (const loc of locations) {

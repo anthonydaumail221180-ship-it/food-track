@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { adminFetchPending, adminDecide, adminPostNews, PendingReport } from '../services/reportsService';
-import { adminCreateTruck, adminListTrucks, AdminTruckRow } from '../services/truckPortal';
+import { adminCreateTruck, adminListTrucks, adminDiscoverTrucks, AdminTruckRow, DiscoveredTruck } from '../services/truckPortal';
 
 // Page privée : ouvrez  votre-site/#/admin  puis saisissez votre code. Le serveur vérifie le code à chaque action.
 export const ModerationPanel: React.FC = () => {
@@ -46,6 +46,30 @@ export const ModerationPanel: React.FC = () => {
     } catch {
       setMsg(full);
     }
+  };
+
+  // Découverte de food trucks via Gemini + Google Search grounding
+  const [discoverQuery, setDiscoverQuery] = useState('');
+  const [discovered, setDiscovered] = useState<DiscoveredTruck[]>([]);
+  const [discovering, setDiscovering] = useState(false);
+
+  const launchDiscover = async () => {
+    setMsg('');
+    setDiscovering(true);
+    const r = await adminDiscoverTrucks(token, discoverQuery.trim());
+    setDiscovering(false);
+    if (r === 'unauthorized') { setMsg('Code admin refusé.'); return; }
+    if (r === 'error') { setMsg('La recherche a échoué. Essayez une autre requête.'); return; }
+    setDiscovered(r.trucks);
+    if (r.trucks.length === 0) setMsg('Aucun food truck trouvé pour cette requête.');
+  };
+
+  const createFromSuggestion = async (s: DiscoveredTruck) => {
+    const r = await adminCreateTruck(token, { name: s.name, cuisine: s.cuisine || '' });
+    if (r === 'unauthorized' || r === 'error') { setMsg('Création impossible.'); return; }
+    setMsg(`✓ ${r.truck.name} créé avec son lien portail.`);
+    setDiscovered(prev => prev.filter(x => x.name !== s.name));
+    await loadTrucks();
   };
 
   const load = async (t = token) => {
@@ -143,6 +167,39 @@ export const ModerationPanel: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* === Découverte web via Gemini + Google Search === */}
+          <h2 className="font-bold mt-8 mb-2">🕵️ Découvrir des food trucks (web)</h2>
+          <div className="bg-white rounded-2xl p-4 border border-gray-100 space-y-2">
+            <p className="text-xs text-gray-500">Lance une recherche web pilotée par IA pour identifier des food trucks actifs au Luxembourg et récupérer leurs réseaux sociaux. Utilise le résultat pour créer rapidement un compte partenaire.</p>
+            <input value={discoverQuery} onChange={e => setDiscoverQuery(e.target.value)} placeholder="Ex: burger, asiatique, Kirchberg, dessert… (vide = tous)" className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 px-4 text-sm" />
+            <button onClick={launchDiscover} disabled={discovering} className="w-full bg-brand-text text-white py-3 rounded-xl font-bold disabled:opacity-60">
+              {discovering ? 'Recherche en cours… (10-20s)' : '🔍 Lancer la recherche'}
+            </button>
+          </div>
+
+          {discovered.length > 0 && (
+            <div className="mt-3 space-y-3">
+              {discovered.map((s, i) => (
+                <div key={`${s.name}-${i}`} className="bg-white rounded-2xl p-4 border border-gray-100 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold">{s.name} {s.confidence && <span className={`text-[9px] px-1.5 py-0.5 rounded-full ml-1 ${s.confidence === 'high' ? 'bg-green-100 text-green-700' : s.confidence === 'medium' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-500'}`}>{s.confidence}</span>}</p>
+                      <p className="text-xs text-gray-500">{s.cuisine || '—'}{s.areas ? ` · ${s.areas}` : ''}</p>
+                    </div>
+                    <button onClick={() => createFromSuggestion(s)} className="bg-brand-gradient text-white text-xs font-bold px-3 py-2 rounded-lg whitespace-nowrap">+ Créer</button>
+                  </div>
+                  {s.notes && <p className="text-xs text-gray-700 italic">« {s.notes} »</p>}
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    {s.instagram && <a href={s.instagram.startsWith('http') ? s.instagram : `https://instagram.com/${s.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-brand-pink font-semibold underline">📷 Insta</a>}
+                    {s.facebook && <a href={s.facebook.startsWith('http') ? s.facebook : `https://www.facebook.com/${s.facebook}`} target="_blank" rel="noopener noreferrer" className="text-brand-blue font-semibold underline">📘 FB</a>}
+                    {s.website && <a href={s.website} target="_blank" rel="noopener noreferrer" className="text-brand-text font-semibold underline">🌐 Site</a>}
+                    {s.phone && <span className="text-gray-500">📞 {s.phone}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
       {msg && <p className="text-sm mt-4 bg-white border border-gray-100 rounded-xl p-3">{msg}</p>}

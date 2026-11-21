@@ -66,7 +66,9 @@ export default async function handler(req: any, res: any) {
       const photo = typeof b.photo === 'string' && b.photo.startsWith('data:image/') && b.photo.length < 200000 ? b.photo : null;
       if (name.length < 2) return res.status(400).json({ error: 'name' });
       if (phone.replace(/\D/g, '').length < 8 || !/^\+?[\d\s().-]+$/.test(phone)) return res.status(400).json({ error: 'phone' });
-      if (!(lat > 49.4 && lat < 50.2 && lng > 5.7 && lng < 6.55)) return res.status(400).json({ error: 'outside_luxembourg' });
+      // Zone élargie Luxembourg + frontières immédiates (France, Belgique, Allemagne proches)
+      // pour tolérer les tests depuis une maison frontalière. Le coeur Lux reste prioritaire.
+      if (!(lat > 48.5 && lat < 51.5 && lng > 4.5 && lng < 8.0)) return res.status(400).json({ error: 'outside_zone' });
       if (!address) return res.status(400).json({ error: 'address' });
       const hourAgo = new Date(Date.now() - 3600 * 1000).toISOString();
       const recent = await sb(`reports?phone=eq.${encodeURIComponent(phone)}&ts=gte.${hourAgo}&select=id`);

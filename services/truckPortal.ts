@@ -28,8 +28,21 @@ export interface TruckLocation {
 }
 
 export interface LiveTruck extends TruckProfile {
-  live_location: Omit<TruckLocation, 'id' | 'truck_id' | 'status' | 'created_at'> | null;
+  live_location: (Omit<TruckLocation, 'id' | 'truck_id' | 'status' | 'created_at'> & { last_pinged_at?: string }) | null;
 }
+
+export const sendHeartbeat = async (token: string, lat?: number, lng?: number): Promise<boolean> => {
+  try {
+    const body: any = {};
+    if (lat !== undefined && lng !== undefined) { body.lat = lat; body.lng = lng; }
+    const r = await fetch(`/api/truck-heartbeat?token=${encodeURIComponent(token)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return r.ok;
+  } catch { return false; }
+};
 
 export type Result<T> = { ok: true; data: T } | { ok: false; message: string };
 
@@ -139,6 +152,34 @@ export const adminCreateTruck = async (
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
       body: JSON.stringify(payload),
+    });
+    if (r.status === 401) return 'unauthorized';
+    if (!r.ok) return 'error';
+    return await r.json();
+  } catch { return 'error'; }
+};
+
+export interface DiscoveredTruck {
+  name: string;
+  cuisine?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  website?: string | null;
+  phone?: string | null;
+  areas?: string | null;
+  notes?: string | null;
+  confidence?: 'high' | 'medium' | 'low';
+}
+
+export const adminDiscoverTrucks = async (
+  token: string,
+  query?: string
+): Promise<{ trucks: DiscoveredTruck[] } | 'unauthorized' | 'error'> => {
+  try {
+    const r = await fetch('/api/discover-trucks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+      body: JSON.stringify({ query: query || '' }),
     });
     if (r.status === 401) return 'unauthorized';
     if (!r.ok) return 'error';

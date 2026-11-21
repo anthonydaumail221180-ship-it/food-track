@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { MapPin, Navigation, CheckCircle2, LogOut, User, Clock, Edit3, Camera, Loader2, ChevronRight, Instagram, Facebook, Phone, Globe, Utensils, History, PowerOff } from 'lucide-react';
-import { fetchMyTruck, updateMyTruck, setMyLocation, closeMyLocation, TruckProfile, TruckLocation } from '../services/truckPortal';
+import { fetchMyTruck, updateMyTruck, setMyLocation, closeMyLocation, sendHeartbeat, TruckProfile, TruckLocation } from '../services/truckPortal';
 import { getUserPosition } from '../services/location';
 import { reverseGeocodeAgent } from '../services/geocode';
 import { BrandLogo } from './BrandLogo';
@@ -141,9 +141,11 @@ const HomeTab: React.FC<{
     if (!r.ok) { setLocating(false); setErr(r.message); return; }
     const rev = await reverseGeocodeAgent(r.lat, r.lng);
     setLocating(false);
-    if (!rev) { setErr("Adresse introuvable. Vérifiez votre connexion."); return; }
-    if (!rev.inLuxembourg) { setErr("Votre position n'est pas au Luxembourg. Le point d'ancrage doit être au Luxembourg."); return; }
-    setPos({ lat: r.lat, lng: r.lng, address: rev.address || 'Position GPS' });
+    const address = rev?.address || `Position GPS (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)})`;
+    if (rev && !rev.inLuxembourg) {
+      setErr("Attention : position hors Luxembourg. Le broadcast ne sera visible que si vous êtes bien dans la zone couverte par LëtzTrack.");
+    }
+    setPos({ lat: r.lat, lng: r.lng, address });
   };
 
   const broadcast = async () => {
@@ -173,6 +175,31 @@ const HomeTab: React.FC<{
     onChange();
   };
 
+  // Auto-heartbeat live tracking : toutes les 2 min, ping le serveur pour prouver que la présence est active.
+  // L'app publique affiche alors "maj il y a X min" (fraîcheur).
+  React.useEffect(() => {
+    if (!activeLocation) return;
+    const tick = () => { sendHeartbeat(token).catch(() => {}); };
+    const id = window.setInterval(tick, 120_000);
+    return () => window.clearInterval(id);
+  }, [activeLocation, token]);
+
+  const pingNow = async () => {
+    const ok = await sendHeartbeat(token);
+    if (ok) showToast("Position confirmée (Live tracking mis à jour).");
+    else setErr("Impossible d'envoyer la mise à jour. Réessayez.");
+    onChange();
+  };
+
+  const pingWithGps = async () => {
+    const r = await getUserPosition();
+    if (!r.ok) { setErr(r.message); return; }
+    const ok = await sendHeartbeat(token, r.lat, r.lng);
+    if (ok) showToast("Nouvelle position envoyée en LIVE.");
+    else setErr("Impossible d'envoyer la nouvelle position.");
+    onChange();
+  };
+
   if (activeLocation) {
     const until = activeLocation.open_until ? new Date(activeLocation.open_until) : null;
     const untilStr = until ? until.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : null;
@@ -190,15 +217,25 @@ const HomeTab: React.FC<{
           {untilStr && <p className="text-white/85 text-sm mt-2">Jusqu'à {untilStr}</p>}
         </div>
 
+        {/* Boutons live tracking */}
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={pingNow} className="bg-white border-2 border-brand-border text-brand-text rounded-2xl p-3 font-bold text-sm hover:border-brand-orange transition">
+            🫡 Je suis toujours là
+          </button>
+          <button onClick={pingWithGps} className="bg-white border-2 border-brand-border text-brand-text rounded-2xl p-3 font-bold text-sm hover:border-brand-orange transition">
+            📍 J'ai bougé
+          </button>
+        </div>
+
         <button onClick={close} className="w-full bg-white border-2 border-red-200 text-red-600 rounded-2xl p-4 font-bold flex items-center justify-center gap-2 hover:bg-red-50 transition">
           <PowerOff size={20} />
           Fermer maintenant
         </button>
 
         <div className="bg-white rounded-2xl p-4 border border-brand-border">
-          <p className="text-xs text-brand-muted font-bold uppercase tracking-wider mb-2">Pourquoi broadcaster ?</p>
+          <p className="text-xs text-brand-muted font-bold uppercase tracking-wider mb-2">Live tracking</p>
           <p className="text-sm text-brand-text leading-relaxed">
-            Tant que vous êtes en service, vos clients vous trouvent en temps réel sur l'app LëtzTrack avec un badge <span className="text-brand-green font-bold">LIVE</span>. Fermez quand vous repartez pour éviter de faire déplacer les gens pour rien.
+            Votre présence est pingée automatiquement toutes les 2 minutes tant que vous êtes dans l'app. Vos clients voient <span className="font-bold">« maj il y a X min »</span> sur votre fiche. Si vous bougez, cliquez <span className="font-bold">« J'ai bougé »</span> pour actualiser le point sur la carte sans recréer une session.
           </p>
         </div>
       </div>

@@ -59,8 +59,9 @@ export default async function handler(req: any, res: any) {
       } else {
         openUntil = new Date(now + 4 * 3600 * 1000);
       }
-      if (!(lat > 49.4 && lat < 50.2 && lng > 5.7 && lng < 6.55)) {
-        return res.status(400).json({ error: 'outside_luxembourg' });
+      // Zone élargie (Luxembourg + frontière immédiate) pour tolérer tests depuis une maison frontalière
+      if (!(lat > 48.5 && lat < 51.5 && lng > 4.5 && lng < 8.0)) {
+        return res.status(400).json({ error: 'outside_zone' });
       }
       if (address.length < 2) return res.status(400).json({ error: 'address_required' });
 

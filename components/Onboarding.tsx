@@ -2,7 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { BrandLogo } from './BrandLogo';
-import { ArrowRight, Check, Bell, MapPin, AlertCircle, ScanFace, Lock, LogIn, Globe } from 'lucide-react';
+import { ArrowRight, Check, Bell, MapPin, AlertCircle, ScanFace, Lock, LogIn, Globe, KeyRound, Mail, ArrowLeft } from 'lucide-react';
+import { signup as apiSignup, login as apiLogin, forgotPassword as apiForgot, resetPassword as apiReset, AuthUser } from '../services/userAuth';
+
+// Convertit l'utilisateur renvoyé par l'API en UserProfile attendu par le reste de l'app
+const toUserProfile = (u: AuthUser, extra?: Partial<UserProfile>): UserProfile => ({
+    firstName: u.firstName,
+    lastName: u.lastName,
+    email: u.email,
+    phone: u.phone,
+    nickname: u.nickname,
+    avatarId: u.avatarId,
+    permissions: { notifications: true, location: true },
+    language: u.language,
+    isAdmin: u.isAdmin,
+    history: [],
+    ...extra,
+});
 
 interface OnboardingProps {
     onComplete: (user: UserProfile) => void;
@@ -69,11 +85,15 @@ const Container: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     </div>
 );
 
+type Mode = 'register' | 'login' | 'forgot' | 'reset';
+
 export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) => {
-    const [isLoginMode, setIsLoginMode] = useState(false);
+    const [mode, setMode] = useState<Mode>('register');
     const [step, setStep] = useState(1);
     const [error, setError] = useState<string | null>(null);
-    
+    const [info, setInfo] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+
     const [formData, setFormData] = useState({
         firstName: '',
         lastName: '',
@@ -90,179 +110,215 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
         location: false
     });
 
-    const [loginData, setLoginData] = useState({
-        phonePrefix: '+352',
-        phoneNumber: '',
-        password: ''
-    });
-    const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
-    const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [loginData, setLoginData] = useState({ email: '', password: '' });
+    const [forgotData, setForgotData] = useState({ email: '', code: '', newPassword: '' });
 
-    useEffect(() => {
-        if ((window as any).PublicKeyCredential) {
-            setIsBiometricAvailable(true);
-        }
-    }, []);
-
-    const handleLogin = (method: 'password' | 'biometric') => {
+    const handleLogin = async () => {
         setError(null);
-        const allUsersRaw = localStorage.getItem('foodtrack_all_users');
-        const allUsers: UserProfile[] = allUsersRaw ? JSON.parse(allUsersRaw) : [];
-        
-        if (method === 'biometric') {
-            setIsAuthenticating(true);
-            setTimeout(() => {
-                const lastUser = allUsers[0]; 
-                if (lastUser) {
-                    onComplete(lastUser);
-                } else {
-                    setIsAuthenticating(false);
-                    setError("Aucun compte reconnu pour FaceID. Veuillez utiliser le mot de passe.");
-                }
-            }, 1500);
+        if (!loginData.email || !loginData.password) {
+            setError("Email et mot de passe sont requis.");
             return;
         }
-
-        const fullPhone = `${loginData.phonePrefix} ${loginData.phoneNumber}`;
-        const user = allUsers.find(u => 
-            u.phone.replace(/\s/g, '') === fullPhone.replace(/\s/g, '') && 
-            u.password === loginData.password
-        );
-
-        if (user) {
-            onComplete(user);
-        } else {
-            setError("Numéro ou mot de passe incorrect.");
-        }
+        setSubmitting(true);
+        const r = await apiLogin(loginData.email.trim(), loginData.password);
+        setSubmitting(false);
+        if (!r.ok) { setError(r.message); return; }
+        onComplete(toUserProfile(r.user));
     };
 
-    const handleRegistrationNext = () => {
+    const handleForgotSendCode = async () => {
+        setError(null); setInfo(null);
+        if (!forgotData.email) { setError("Email requis."); return; }
+        setSubmitting(true);
+        const r = await apiForgot(forgotData.email.trim());
+        setSubmitting(false);
+        if (!r.ok) { setError(r.message); return; }
+        setInfo(r.message);
+        setMode('reset');
+    };
+
+    const handleResetPassword = async () => {
+        setError(null); setInfo(null);
+        if (!/^\d{6}$/.test(forgotData.code)) { setError("Le code doit faire 6 chiffres."); return; }
+        if (forgotData.newPassword.length < 6) { setError("Nouveau mot de passe trop court (6 min)."); return; }
+        setSubmitting(true);
+        const r = await apiReset(forgotData.email.trim(), forgotData.code, forgotData.newPassword);
+        setSubmitting(false);
+        if (!r.ok) { setError(r.message); return; }
+        onComplete(toUserProfile(r.user));
+    };
+
+    const handleRegistrationNext = async () => {
         setError(null);
-        // Step 1: Language -> Step 2
-        // Step 2: Info -> Step 3
-        // Step 3: Avatar -> Step 4
-        // Step 4: Perms -> Finish
         if (step < 4) {
             setStep(step + 1);
             return;
         }
-        
+
         const fullPhone = `${formData.phonePrefix} ${formData.phoneNumber}`;
-        const allUsersRaw = localStorage.getItem('foodtrack_all_users');
-        const allUsers: UserProfile[] = allUsersRaw ? JSON.parse(allUsersRaw) : [];
-
-        if (allUsers.some(u => u.email.toLowerCase() === formData.email.trim().toLowerCase())) {
-            setError("Cette adresse email est déjà utilisée.");
-            setStep(2);
-            return;
-        }
-        if (allUsers.some(u => u.phone.replace(/\s/g, '') === fullPhone.replace(/\s/g, ''))) {
-            setError("Ce numéro de téléphone est déjà enregistré.");
-            setStep(2);
-            return;
-        }
-
-        const newUser: UserProfile = {
+        setSubmitting(true);
+        const r = await apiSignup({
+            email: formData.email.trim(),
+            password: formData.password,
             firstName: formData.firstName.trim(),
             lastName: formData.lastName.trim(),
-            email: formData.email.trim(),
             phone: fullPhone,
-            password: formData.password,
             nickname: formData.nickname.trim(),
-            avatarId: selectedAvatar,
-            permissions,
             language: formData.language,
-            history: [] // Initial empty history
-        };
-
-        localStorage.setItem('foodtrack_all_users', JSON.stringify([...allUsers, newUser]));
-        onComplete(newUser);
+            avatarId: selectedAvatar,
+        });
+        setSubmitting(false);
+        if (!r.ok) {
+            setError(r.message);
+            // Si email déjà utilisé, bascule en login pour éviter la frustration
+            if (/email est déjà utilisée/i.test(r.message)) {
+                setLoginData({ email: formData.email.trim(), password: '' });
+                setMode('login');
+            } else {
+                setStep(2); // retour sur le formulaire infos
+            }
+            return;
+        }
+        onComplete(toUserProfile(r.user, { permissions }));
     };
 
     const isValidStep2 = formData.firstName && formData.lastName && formData.email && formData.phoneNumber && formData.nickname && formData.password;
 
-    if (isLoginMode) {
+    // ---- Mode LOGIN (email + mot de passe) ----
+    if (mode === 'login') {
         return (
             <Container>
                 <div className="w-full animate-slide-up">
                     <div className="flex justify-center mb-8">
                         <BrandLogo size="lg" />
                     </div>
-                    
                     <h2 className="text-2xl font-display text-brand-text text-center mb-6">LëtzTrack : Connexion</h2>
 
                     {error && (
-                        <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
-                            <AlertCircle size={18} className="flex-shrink-0" />
-                            {error}
+                        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <AlertCircle size={18} className="flex-shrink-0" />{error}
                         </div>
                     )}
 
                     <div className="space-y-4">
-                        <div className="flex gap-2">
-                            <select 
-                                className="w-28 p-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none text-sm"
-                                value={loginData.phonePrefix}
-                                onChange={e => setLoginData({...loginData, phonePrefix: e.target.value})}
-                            >
-                                {COUNTRY_CODES.map(c => (
-                                    <option key={c.code} value={c.code}>{c.country} {c.code}</option>
-                                ))}
-                            </select>
-                            <input 
-                                type="tel" 
-                                placeholder="Téléphone"
-                                className="flex-1 p-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none transition-colors"
-                                value={loginData.phoneNumber}
-                                onChange={e => setLoginData({...loginData, phoneNumber: e.target.value})}
-                            />
+                        <div className="relative">
+                            <input type="email" placeholder="Email" autoComplete="email"
+                                className="w-full p-3 pl-10 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none"
+                                value={loginData.email} onChange={e => setLoginData({...loginData, email: e.target.value})} />
+                            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         </div>
                         <div className="relative">
-                            <input 
-                                type="password" 
-                                placeholder="Mot de passe"
-                                className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none transition-colors pl-10"
-                                value={loginData.password}
-                                onChange={e => setLoginData({...loginData, password: e.target.value})}
-                            />
+                            <input type="password" placeholder="Mot de passe" autoComplete="current-password"
+                                className="w-full p-3 pl-10 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none"
+                                value={loginData.password} onChange={e => setLoginData({...loginData, password: e.target.value})} />
                             <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         </div>
 
-                        <button 
-                            onClick={() => handleLogin('password')}
-                            className="w-full bg-brand-text text-white py-3 rounded-xl font-bold shadow-lg hover:opacity-90 flex items-center justify-center gap-2"
-                        >
-                            <LogIn size={18} /> Se connecter
+                        <button onClick={handleLogin} disabled={submitting}
+                            className="w-full bg-brand-text text-white py-3 rounded-xl font-bold shadow-lg hover:opacity-90 flex items-center justify-center gap-2 disabled:opacity-60">
+                            <LogIn size={18} /> {submitting ? 'Connexion...' : 'Se connecter'}
                         </button>
 
-                        {isBiometricAvailable && (
-                            <div className="relative my-6">
-                                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
-                                <div className="relative flex justify-center text-sm"><span className="px-2 bg-white text-gray-500">ou</span></div>
-                            </div>
-                        )}
-
-                        {isBiometricAvailable && (
-                            <button 
-                                onClick={() => handleLogin('biometric')}
-                                disabled={isAuthenticating}
-                                className="w-full bg-white border border-gray-200 text-brand-blue py-3 rounded-xl font-bold hover:bg-gray-50 flex items-center justify-center gap-2 transition-all"
-                            >
-                                {isAuthenticating ? (
-                                    <span className="animate-pulse">Recherche visage...</span>
-                                ) : (
-                                    <>
-                                        <ScanFace size={20} /> FaceID / TouchID
-                                    </>
-                                )}
+                        <div className="text-center">
+                            <button onClick={() => { setMode('forgot'); setError(null); setInfo(null); setForgotData({ email: loginData.email, code: '', newPassword: '' }); }}
+                                className="text-sm text-brand-pink font-bold hover:underline inline-flex items-center gap-1">
+                                <KeyRound size={14} /> Mot de passe oublié ?
                             </button>
-                        )}
+                        </div>
                     </div>
 
                     <div className="mt-8 text-center">
                         <p className="text-sm text-gray-500">Pas encore de compte ?</p>
-                        <button onClick={() => setIsLoginMode(false)} className="text-brand-pink font-bold hover:underline">
+                        <button onClick={() => { setMode('register'); setError(null); setStep(1); }} className="text-brand-pink font-bold hover:underline">
                             Créer un compte
+                        </button>
+                    </div>
+                </div>
+            </Container>
+        );
+    }
+
+    // ---- Mode FORGOT (saisie email -> envoi code) ----
+    if (mode === 'forgot') {
+        return (
+            <Container>
+                <div className="w-full animate-slide-up">
+                    <div className="flex justify-center mb-8"><BrandLogo size="lg" /></div>
+                    <h2 className="text-2xl font-display text-brand-text text-center mb-2">Mot de passe oublié</h2>
+                    <p className="text-sm text-gray-500 text-center mb-6">Nous vous envoyons un code à 6 chiffres pour réinitialiser votre mot de passe.</p>
+
+                    {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle size={18} />{error}</div>}
+                    {info && <div className="mb-4 bg-blue-50 border border-blue-100 text-blue-700 px-4 py-3 rounded-xl text-sm">{info}</div>}
+
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <input type="email" placeholder="Votre email"
+                                className="w-full p-3 pl-10 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none"
+                                value={forgotData.email} onChange={e => setForgotData({...forgotData, email: e.target.value})} />
+                            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        </div>
+
+                        <button onClick={handleForgotSendCode} disabled={submitting}
+                            className="w-full bg-brand-gradient text-white py-3 rounded-xl font-bold shadow-glow disabled:opacity-60">
+                            {submitting ? 'Envoi...' : 'Envoyer le code'}
+                        </button>
+
+                        <button onClick={() => { setMode('reset'); setError(null); setInfo(null); }} className="w-full text-sm text-gray-600 py-2">
+                            J'ai déjà un code →
+                        </button>
+                    </div>
+
+                    <div className="mt-6 text-center">
+                        <button onClick={() => { setMode('login'); setError(null); setInfo(null); }} className="text-sm text-brand-pink font-bold hover:underline inline-flex items-center gap-1">
+                            <ArrowLeft size={14} /> Retour à la connexion
+                        </button>
+                    </div>
+                </div>
+            </Container>
+        );
+    }
+
+    // ---- Mode RESET (code + nouveau mdp) ----
+    if (mode === 'reset') {
+        return (
+            <Container>
+                <div className="w-full animate-slide-up">
+                    <div className="flex justify-center mb-8"><BrandLogo size="lg" /></div>
+                    <h2 className="text-2xl font-display text-brand-text text-center mb-2">Nouveau mot de passe</h2>
+                    <p className="text-sm text-gray-500 text-center mb-6">Saisissez le code à 6 chiffres reçu et votre nouveau mot de passe.</p>
+
+                    {error && <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle size={18} />{error}</div>}
+                    {info && <div className="mb-4 bg-blue-50 border border-blue-100 text-blue-700 px-4 py-3 rounded-xl text-sm">{info}</div>}
+
+                    <div className="space-y-4">
+                        <div className="relative">
+                            <input type="email" placeholder="Votre email"
+                                className="w-full p-3 pl-10 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none"
+                                value={forgotData.email} onChange={e => setForgotData({...forgotData, email: e.target.value})} />
+                            <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        </div>
+                        <input type="text" inputMode="numeric" maxLength={6} placeholder="Code à 6 chiffres"
+                            className="w-full p-3 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none tracking-[0.5em] text-center text-xl font-bold"
+                            value={forgotData.code} onChange={e => setForgotData({...forgotData, code: e.target.value.replace(/\D/g, '').slice(0, 6)})} />
+                        <div className="relative">
+                            <input type="password" placeholder="Nouveau mot de passe (6 car. min)"
+                                className="w-full p-3 pl-10 bg-gray-50 border border-gray-100 rounded-xl focus:border-brand-pink outline-none"
+                                value={forgotData.newPassword} onChange={e => setForgotData({...forgotData, newPassword: e.target.value})} />
+                            <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        </div>
+
+                        <button onClick={handleResetPassword} disabled={submitting}
+                            className="w-full bg-brand-gradient text-white py-3 rounded-xl font-bold shadow-glow disabled:opacity-60">
+                            {submitting ? 'Validation...' : 'Réinitialiser'}
+                        </button>
+                    </div>
+
+                    <div className="mt-6 text-center space-y-2">
+                        <button onClick={() => { setMode('forgot'); setError(null); setInfo(null); }} className="text-sm text-gray-600 hover:underline block w-full">
+                            Je n'ai pas reçu le code
+                        </button>
+                        <button onClick={() => { setMode('login'); setError(null); setInfo(null); }} className="text-sm text-brand-pink font-bold hover:underline inline-flex items-center gap-1">
+                            <ArrowLeft size={14} /> Retour à la connexion
                         </button>
                     </div>
                 </div>
@@ -459,7 +515,7 @@ export const Onboarding: React.FC<OnboardingProps> = ({ onComplete, onSkip }) =>
 
                 {step === 1 && (
                     <p className="text-center text-sm text-gray-500">
-                        Déjà inscrit ? <button onClick={() => setIsLoginMode(true)} className="text-brand-pink font-bold hover:underline">Se connecter</button>
+                        Déjà inscrit ? <button onClick={() => { setMode('login'); setError(null); }} className="text-brand-pink font-bold hover:underline">Se connecter</button>
                     </p>
                 )}
 

@@ -18,11 +18,12 @@ import { ModerationPanel } from './components/ModerationPanel';
 import { TruckPortal } from './components/TruckPortal';
 import { fetchCommunityTrucks } from './services/reportsService';
 import { fetchLiveTrucks, LiveTruck } from './services/truckPortal';
+import { fetchMe as apiFetchMe, logout as apiLogout, AuthUser } from './services/userAuth';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
 import { getUserPosition } from './services/location';
-import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight, Coins } from 'lucide-react';
+import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight, Coins, Truck } from 'lucide-react';
 import { TasteHistory } from './components/TasteHistory';
 import { NavChoiceModal } from './components/NavChoiceModal';
 import { NavTarget } from './services/mapsNavigation';
@@ -143,24 +144,61 @@ const App: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState("");
 
-  // Splash Screen Timer & User Check
-  useEffect(() => {
-      const timer = setTimeout(() => {
-          setShowSplash(false);
-          try {
-              const savedUser = localStorage.getItem('foodtrack_user');
-              if (savedUser) {
-                  const u = JSON.parse(savedUser);
-                  // Ensure history array exists for legacy data
-                  if (!u.history) u.history = [];
-                  setUser(u);
-              }
-          } catch {
-              // Donnée corrompue : on nettoie pour éviter un crash au prochain démarrage
-              try { localStorage.removeItem('foodtrack_user'); } catch { /* ignore */ }
+  // Convertit AuthUser (API) en UserProfileType (expected by le reste de l'app)
+  const authToProfile = (u: AuthUser): UserProfileType => {
+      // Récupère l'historique local s'il existe (il reste côté client pour l'instant)
+      let history: any[] = [];
+      try {
+          const raw = localStorage.getItem(`foodtrack_history_${u.id}`);
+          if (raw) {
+              const parsed = JSON.parse(raw);
+              if (Array.isArray(parsed)) history = parsed;
           }
-      }, 1500);
-      return () => clearTimeout(timer);
+      } catch { /* ignore */ }
+      return {
+          firstName: u.firstName,
+          lastName: u.lastName,
+          email: u.email,
+          phone: u.phone,
+          nickname: u.nickname,
+          avatarId: u.avatarId,
+          permissions: { notifications: true, location: true },
+          language: u.language,
+          isAdmin: u.isAdmin,
+          history,
+      };
+  };
+
+  // Splash Screen Timer & User Check (session token BDD, fallback localStorage pour legacy)
+  useEffect(() => {
+      const start = Date.now();
+      let mounted = true;
+      const bootstrap = async () => {
+          const authUser = await apiFetchMe();
+          const elapsed = Date.now() - start;
+          const wait = Math.max(0, 1500 - elapsed);
+          setTimeout(() => {
+              if (!mounted) return;
+              setShowSplash(false);
+              if (authUser) {
+                  setUser(authToProfile(authUser));
+                  return;
+              }
+              // Fallback legacy : ancien utilisateur en localStorage (avant Phase 1ter)
+              try {
+                  const savedUser = localStorage.getItem('foodtrack_user');
+                  if (savedUser) {
+                      const u = JSON.parse(savedUser);
+                      if (!u.history) u.history = [];
+                      setUser(u);
+                  }
+              } catch {
+                  try { localStorage.removeItem('foodtrack_user'); } catch { /* ignore */ }
+              }
+          }, wait);
+      };
+      bootstrap();
+      return () => { mounted = false; };
   }, []);
 
   // Convertit un truck LIVE (BDD + emplacement actif) en FoodTruck affichable
@@ -168,6 +206,14 @@ const App: React.FC = () => {
       if (!t.live_location) return null;
       const until = t.live_location.open_until ? new Date(t.live_location.open_until) : null;
       const untilStr = until ? until.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+      // Fraîcheur du heartbeat (live tracking) : "il y a X min"
+      let freshness = '';
+      if (t.live_location.last_pinged_at) {
+          const diffMin = Math.round((Date.now() - new Date(t.live_location.last_pinged_at).getTime()) / 60000);
+          if (diffMin < 1) freshness = ' · maj à l\'instant';
+          else if (diffMin < 60) freshness = ` · maj il y a ${diffMin} min`;
+          else freshness = ` · maj il y a ${Math.round(diffMin / 60)} h`;
+      }
       return {
           id: `live-${t.id}`,
           name: t.name,
@@ -178,7 +224,7 @@ const App: React.FC = () => {
           rating: 0,
           imageUrl: t.photo_url || undefined,
           isOpen: true,
-          hours: untilStr ? `En service · jusqu'à ${untilStr}` : 'En service',
+          hours: `${untilStr ? `En service · jusqu'à ${untilStr}` : 'En service'}${freshness}`,
           phone: t.phone || undefined,
           website: t.website || undefined,
       };
@@ -223,7 +269,8 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-      localStorage.removeItem('foodtrack_user');
+      apiLogout().catch(() => {});
+      try { localStorage.removeItem('foodtrack_user'); } catch {}
       setUser(undefined);
       setCurrentView(AppView.ONBOARDING);
   };
@@ -314,6 +361,14 @@ const App: React.FC = () => {
   const handleOpenProfile = (truck: FoodTruck) => {
       setSelectedTruck(truck);
       setCurrentView(AppView.PROFILE);
+      // Historique "récemment consulté" pour le tri "Pour moi" dans Grub
+      try {
+          const raw = localStorage.getItem('foodtrack_recent_views');
+          const arr: string[] = raw ? (JSON.parse(raw) as string[]) : [];
+          const filtered = Array.isArray(arr) ? arr.filter(id => id !== truck.id) : [];
+          const next = [truck.id, ...filtered].slice(0, 20);
+          localStorage.setItem('foodtrack_recent_views', JSON.stringify(next));
+      } catch { /* ignore */ }
   }
 
   const toggleFavorite = (id: string) => {
@@ -379,19 +434,19 @@ const App: React.FC = () => {
                     </button>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <button 
+                        <button
                             onClick={() => setCurrentView(AppView.REPORT)}
-                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-green"
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-orange"
                         >
-                            <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center"><Megaphone size={20} className="text-brand-green" /></div>
-                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Spot un food truck</h3>
+                            <div className="w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center"><Truck size={20} className="text-brand-orange" /></div>
+                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Spot</h3>
                         </button>
-                        <button 
+                        <button
                             onClick={() => setCurrentView(AppView.FEED)}
                             className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-pink"
                         >
-                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center"><Newspaper size={20} className="text-brand-pink" /></div>
-                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Fil d'actu</h3>
+                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center"><Flame size={20} className="text-brand-pink" /></div>
+                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Feed</h3>
                         </button>
                     </div>
                 </div>

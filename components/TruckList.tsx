@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { truckImage } from '../services/truckImage';
 import { FoodTruck, CheckIn } from '../types';
-import { MapPin, Star, Navigation, Heart, Filter, ArrowDownUp, ExternalLink, Clock } from 'lucide-react';
+import { MapPin, Star, Navigation, Heart, Filter, ArrowDownUp, ExternalLink, Clock, Search, X } from 'lucide-react';
 import { AdBanner } from './AdBanner';
 
 interface TruckListProps {
@@ -16,6 +16,17 @@ interface TruckListProps {
   sources: string[];
   history: CheckIn[];
 }
+
+// Récupère les truck_ids récemment consultés (depuis localStorage, mis à jour par App.tsx au clic)
+const loadRecentViews = (): string[] => {
+  try {
+    const raw = localStorage.getItem('foodtrack_recent_views');
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x: any) => typeof x === 'string');
+  } catch { return []; }
+};
 
 // Helper: Calculate distance in km using Haversine
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -31,34 +42,56 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
 }
 
 export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruckClick, favorites, toggleFavorite, loading, userLocation, sources, history }) => {
-  const [sortBy, setSortBy] = useState<'default' | 'distance' | 'visited'>('default');
+  const [sortBy, setSortBy] = useState<'default' | 'distance'>('default');
+  const [search, setSearch] = useState('');
+  const [recentViews, setRecentViews] = useState<string[]>(() => loadRecentViews());
+
+  // Rafraîchit recentViews quand la liste des trucks change (après un clic qui a bougé l'ordre)
+  useEffect(() => {
+      setRecentViews(loadRecentViews());
+  }, [trucks]);
 
   // Derived Data: Filtered & Sorted Trucks
   const displayTrucks = useMemo(() => {
-      let result = [...trucks];
+      // 1) Filtre texte (nom, cuisine, adresse)
+      const q = search.trim().toLowerCase();
+      let result = q
+        ? trucks.filter(t =>
+            t.name.toLowerCase().includes(q) ||
+            (t.cuisine || '').toLowerCase().includes(q) ||
+            (t.locationName || '').toLowerCase().includes(q))
+        : [...trucks];
 
-      // Sort
+      // 2) Tri
       if (sortBy === 'distance' && userLocation) {
           result.sort((a, b) => {
               const distA = a.coordinates ? getDistance(userLocation.lat, userLocation.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
               const distB = b.coordinates ? getDistance(userLocation.lat, userLocation.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
               return distA - distB;
           });
-      } else if (sortBy === 'visited') {
-          // Sort by most recently visited in history
-          result.sort((a, b) => {
-              const lastVisitA = history.find(h => h.truckId === a.id)?.date || '';
-              const lastVisitB = history.find(h => h.truckId === b.id)?.date || '';
-              // If neither visited, keep original order (or sort by id)
-              if (!lastVisitA && !lastVisitB) return 0;
-              if (!lastVisitA) return 1;
-              if (!lastVisitB) return -1;
-              return lastVisitB.localeCompare(lastVisitA); // Descending date
-          });
+      } else {
+          // Tri par défaut : priorité aux favoris + derniers consultés (ordre : recentViews desc, favoris)
+          // Puis derniere visite via history, puis ordre original (LIVE restent au top grâce à App.tsx)
+          const recentIdx: Record<string, number> = {};
+          recentViews.forEach((id, i) => { recentIdx[id] = i; });
+          const historyIdx: Record<string, string> = {};
+          history.forEach(h => { if (!historyIdx[h.truckId] || h.date > historyIdx[h.truckId]) historyIdx[h.truckId] = h.date; });
+
+          const scoreOf = (t: FoodTruck): number => {
+              let s = 0;
+              if (recentIdx[t.id] !== undefined) s += 1000 - recentIdx[t.id]; // plus récent = plus haut
+              if (favorites.includes(t.id)) s += 500;
+              if (historyIdx[t.id]) s += 100;
+              return s;
+          };
+          // Tri stable (les LIVE ont déjà la pole position dans l'ordre d'entrée)
+          const withScore = result.map((t, i) => ({ t, i, s: scoreOf(t) }));
+          withScore.sort((a, b) => b.s - a.s || a.i - b.i);
+          result = withScore.map(x => x.t);
       }
 
       return result;
-  }, [trucks, sortBy, userLocation, history]);
+  }, [trucks, sortBy, userLocation, history, recentViews, favorites, search]);
   
   if (loading) {
     return (
@@ -81,29 +114,43 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
         <p className="text-sm text-brand-muted mt-1 capitalize">{new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })} · {trucks.length} food truck{trucks.length > 1 ? 's' : ''}</p>
       </div>
 
-      {/* Filter Bar - Simplified: No Cuisines */}
-      <div className="sticky top-16 z-30 bg-brand-bg/85 backdrop-blur-md py-3 border-b border-brand-border/60">
+      {/* Filter Bar : Tous / Distance + champ de recherche */}
+      <div className="sticky top-16 z-30 bg-brand-bg/85 backdrop-blur-md py-3 border-b border-brand-border/60 space-y-2">
           <div className="flex flex-wrap items-center gap-2 justify-start">
-            {/* Sort Controls */}
-            <button 
+            <button
                 onClick={() => setSortBy('default')}
                 className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'default' ? 'bg-brand-text text-white border-brand-text shadow-card' : 'bg-white text-gray-500 border-brand-border'}`}
+                title="Favoris et récents en priorité"
             >
-                <Filter size={12} /> Tous
+                <Filter size={12} /> Pour moi
             </button>
-            <button 
+            <button
                 onClick={() => setSortBy('distance')}
                 className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'distance' ? 'bg-brand-gradient text-white border-transparent shadow-glow' : 'bg-white text-gray-500 border-brand-border'}`}
             >
                 <ArrowDownUp size={12} /> Distance
             </button>
-            <button 
-                onClick={() => setSortBy('visited')}
-                className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 border transition ${sortBy === 'visited' ? 'bg-brand-gradient text-white border-transparent shadow-glow' : 'bg-white text-gray-500 border-brand-border'}`}
-            >
-                <Clock size={12} /> Récents
-            </button>
+
+            {/* Champ de recherche (remplace l'ancien bouton Récents) */}
+            <div className="relative flex-1 min-w-[180px]">
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Rechercher un nom, une cuisine..."
+                className="w-full pl-9 pr-9 py-2 rounded-full border border-brand-border bg-white text-sm text-brand-text focus:outline-none focus:border-brand-orange"
+              />
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-muted" />
+              {search && (
+                <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full hover:bg-brand-bg flex items-center justify-center text-brand-muted" aria-label="Effacer">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
           </div>
+          {search && (
+            <p className="text-[11px] text-brand-muted px-1">{displayTrucks.length} résultat{displayTrucks.length > 1 ? 's' : ''} pour « {search} »</p>
+          )}
       </div>
 
       {displayTrucks.length === 0 && (

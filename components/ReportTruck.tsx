@@ -62,8 +62,15 @@ export const ReportTruck: React.FC<ReportTruckProps> = ({ onBack, onDone }) => {
     if (r.ok === false) { setLocating(false); setPos(null); setError(r.message); return; }
     const rev = await reverseGeocodeAgent(r.lat, r.lng);
     setLocating(false);
-    if (!rev) { setPos(null); setError("Adresse introuvable pour le moment. Vérifiez votre connexion et réessayez."); return; }
-    if (!rev.inLuxembourg) { setPos(null); setError("Votre position n'est pas au Luxembourg : le signalement n'est pas possible."); return; }
+    if (!rev) {
+      // Pas d'adresse : on continue avec les coordonnées brutes
+      setPos({ lat: r.lat, lng: r.lng, address: `Position GPS (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)})`, ts: Date.now() });
+      return;
+    }
+    if (!rev.inLuxembourg) {
+      // Soft warning (serveur valide zone élargie Lux+frontières)
+      setError("Position hors Luxembourg : le signalement sera peut-être refusé. Vérifiez l'adresse.");
+    }
     setPos({ lat: r.lat, lng: r.lng, address: rev.address || 'Position GPS', ts: Date.now() });
   };
 
