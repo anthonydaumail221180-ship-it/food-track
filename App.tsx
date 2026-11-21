@@ -18,7 +18,7 @@ import { ModerationPanel } from './components/ModerationPanel';
 import { TruckPortal } from './components/TruckPortal';
 import { fetchCommunityTrucks } from './services/reportsService';
 import { fetchLiveTrucks, LiveTruck } from './services/truckPortal';
-import { fetchMe as apiFetchMe, logout as apiLogout, AuthUser } from './services/userAuth';
+import { fetchMe as apiFetchMe, logout as apiLogout, fetchFavorites, addFavoriteRemote, removeFavoriteRemote, AuthUser } from './services/userAuth';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
@@ -178,6 +178,8 @@ const App: React.FC = () => {
       let mounted = true;
       const bootstrap = async () => {
           const authUser = await apiFetchMe();
+          // Charge les favoris BDD en parallèle pour sync multi-appareil
+          const remoteFavs = authUser ? await fetchFavorites() : [];
           const elapsed = Date.now() - start;
           const wait = Math.max(0, 1500 - elapsed);
           setTimeout(() => {
@@ -185,6 +187,19 @@ const App: React.FC = () => {
               setShowSplash(false);
               if (authUser) {
                   setUser(authToProfile(authUser));
+                  // Si on a des favoris en BDD, ils gagnent sur le localStorage
+                  if (remoteFavs.length > 0) {
+                      setFavorites(remoteFavs);
+                      try { localStorage.setItem('foodtrack_favs', JSON.stringify(remoteFavs)); } catch { /* ignore */ }
+                  } else {
+                      // Migre les favoris localStorage vers la BDD (une seule fois à la connexion)
+                      try {
+                          const local = JSON.parse(localStorage.getItem('foodtrack_favs') || '[]');
+                          if (Array.isArray(local) && local.length) {
+                              local.forEach((id: string) => addFavoriteRemote(id).catch(() => {}));
+                          }
+                      } catch { /* ignore */ }
+                  }
                   return;
               }
               // Fallback legacy : ancien utilisateur en localStorage (avant Phase 1ter)
@@ -417,9 +432,14 @@ const App: React.FC = () => {
   }
 
   const toggleFavorite = (id: string) => {
-      setFavorites(prev => 
-        prev.includes(id) ? prev.filter(fid => fid !== id) : [...prev, id]
-      );
+      setFavorites(prev => {
+          const isCurrentlyFav = prev.includes(id);
+          const next = isCurrentlyFav ? prev.filter(fid => fid !== id) : [...prev, id];
+          // Sync BDD en fire-and-forget (le localStorage est backup immédiat)
+          if (isCurrentlyFav) removeFavoriteRemote(id);
+          else addFavoriteRemote(id);
+          return next;
+      });
   };
 
   // --- Render Views ---

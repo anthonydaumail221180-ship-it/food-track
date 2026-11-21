@@ -124,6 +124,25 @@ export const forgotPassword = async (email: string): Promise<{ ok: boolean; mess
   } catch { return { ok: false, message: "Pas de connexion." }; }
 };
 
+// --- Favoris synchronisés en BDD (sync entre appareils) ---
+export const fetchFavorites = async (): Promise<string[]> => {
+  if (!getSessionToken()) return [];
+  try {
+    const r = await fetch('/api/user?action=fav_list', { headers: hdr() });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return Array.isArray(d.favorites) ? d.favorites : [];
+  } catch { return []; }
+};
+export const addFavoriteRemote = async (truckId: string): Promise<void> => {
+  if (!getSessionToken()) return;
+  try { await callUser('fav_add', { truck_id: truckId }); } catch { /* ignore */ }
+};
+export const removeFavoriteRemote = async (truckId: string): Promise<void> => {
+  if (!getSessionToken()) return;
+  try { await callUser('fav_remove', { truck_id: truckId }); } catch { /* ignore */ }
+};
+
 export const resetPassword = async (email: string, code: string, newPassword: string): Promise<AuthResult> => {
   try {
     const r = await callUser('reset', { email, code, newPassword });

@@ -191,6 +191,31 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok: true, hint: 'Si l\'email existe, un code a été envoyé (consultez vos emails, et si rien dans 1 min, contactez l\'admin).' });
     }
 
+    // --- POST fav_add / fav_remove / GET fav_list ---
+    if (action === 'fav_add' || action === 'fav_remove' || action === 'fav_list') {
+      const user = await authenticateUser(req);
+      if (!user) return res.status(401).json({ error: 'not_authenticated' });
+      if (action === 'fav_list') {
+        const rows = await sb(`user_favorites?user_id=eq.${user.id}&select=truck_id,created_at&order=created_at.desc`);
+        return res.status(200).json({ favorites: rows.map((r: any) => r.truck_id) });
+      }
+      const truckId = String(b.truck_id || '').trim().slice(0, 80);
+      if (!truckId) return res.status(400).json({ error: 'truck_id_required' });
+      if (action === 'fav_add') {
+        try {
+          await sb('user_favorites', {
+            method: 'POST',
+            headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify({ user_id: user.id, truck_id: truckId }),
+          });
+        } catch { /* duplicate ignoré */ }
+        return res.status(200).json({ ok: true });
+      }
+      // fav_remove
+      await sb(`user_favorites?user_id=eq.${user.id}&truck_id=eq.${encodeURIComponent(truckId)}`, { method: 'DELETE' });
+      return res.status(200).json({ ok: true });
+    }
+
     // --- POST reset ---
     if (action === 'reset') {
       const email = normalizeEmail(b.email);
