@@ -181,10 +181,46 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
                 </div>
             </div>
 
+            {/* Infos enrichies BDD (menu, prix, horaires, planning hebdo) */}
+            {(truck.menuText || truck.priceRange || truck.openingHours || truck.weeklySchedule || truck.knownLocations) && (
+                <div className="bg-brand-bg rounded-2xl p-4 border border-brand-border space-y-3">
+                    {truck.menuText && (
+                        <div>
+                            <p className="text-[10px] uppercase tracking-widest text-brand-muted font-bold mb-1">Menu / spécialités</p>
+                            <p className="text-sm text-brand-text">{truck.menuText}</p>
+                        </div>
+                    )}
+                    {truck.priceRange && (
+                        <div>
+                            <p className="text-[10px] uppercase tracking-widest text-brand-muted font-bold mb-1">Prix indicatifs</p>
+                            <p className="text-sm text-brand-text font-bold">{truck.priceRange}</p>
+                        </div>
+                    )}
+                    {truck.openingHours && (
+                        <div>
+                            <p className="text-[10px] uppercase tracking-widest text-brand-muted font-bold mb-1">Horaires</p>
+                            <p className="text-sm text-brand-text">{truck.openingHours}</p>
+                        </div>
+                    )}
+                    {truck.weeklySchedule && (
+                        <div>
+                            <p className="text-[10px] uppercase tracking-widest text-brand-muted font-bold mb-1">Planning hebdomadaire</p>
+                            <p className="text-sm text-brand-text whitespace-pre-line">{truck.weeklySchedule.replace(/\s\|\s/g, '\n')}</p>
+                        </div>
+                    )}
+                    {truck.knownLocations && !truck.weeklySchedule && (
+                        <div>
+                            <p className="text-[10px] uppercase tracking-widest text-brand-muted font-bold mb-1">Emplacements habituels</p>
+                            <p className="text-sm text-brand-text">{truck.knownLocations}</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Description */}
             <div>
                 <h3 className="font-bold text-brand-text mb-2 text-lg">À propos</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{truck.description} Nous sommes fiers d'utiliser des ingrédients frais et locaux du Luxembourg.</p>
+                <p className="text-gray-600 text-sm leading-relaxed">{truck.description}</p>
             </div>
 
             {/* Menu Section */}

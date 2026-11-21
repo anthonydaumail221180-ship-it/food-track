@@ -28,6 +28,11 @@ export interface TruckLocation {
 }
 
 export interface LiveTruck extends TruckProfile {
+  menu?: string;
+  price_range?: string;
+  opening_hours?: string;
+  schedule?: string;
+  known_locations?: string;
   live_location: (Omit<TruckLocation, 'id' | 'truck_id' | 'status' | 'created_at'> & { last_pinged_at?: string }) | null;
 }
 

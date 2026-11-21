@@ -201,32 +201,57 @@ const App: React.FC = () => {
       return () => { mounted = false; };
   }, []);
 
-  // Convertit un truck LIVE (BDD + emplacement actif) en FoodTruck affichable
+  // Convertit un truck BDD en FoodTruck affichable, qu'il soit en LIVE ou non.
+  // - LIVE : adresse = live_location.address, isOpen = true, badge "En service · maj il y a X min"
+  // - OFFLINE : adresse = known_locations (texte libre), isOpen = false, hours = opening_hours
   const liveTruckToFoodTruck = (t: LiveTruck): FoodTruck | null => {
-      if (!t.live_location) return null;
-      const until = t.live_location.open_until ? new Date(t.live_location.open_until) : null;
-      const untilStr = until ? until.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-      // Fraîcheur du heartbeat (live tracking) : "il y a X min"
-      let freshness = '';
-      if (t.live_location.last_pinged_at) {
-          const diffMin = Math.round((Date.now() - new Date(t.live_location.last_pinged_at).getTime()) / 60000);
-          if (diffMin < 1) freshness = ' · maj à l\'instant';
-          else if (diffMin < 60) freshness = ` · maj il y a ${diffMin} min`;
-          else freshness = ` · maj il y a ${Math.round(diffMin / 60)} h`;
+      if (t.live_location) {
+          const until = t.live_location.open_until ? new Date(t.live_location.open_until) : null;
+          const untilStr = until ? until.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+          let freshness = '';
+          if (t.live_location.last_pinged_at) {
+              const diffMin = Math.round((Date.now() - new Date(t.live_location.last_pinged_at).getTime()) / 60000);
+              if (diffMin < 1) freshness = ' · maj à l\'instant';
+              else if (diffMin < 60) freshness = ` · maj il y a ${diffMin} min`;
+              else freshness = ` · maj il y a ${Math.round(diffMin / 60)} h`;
+          }
+          return {
+              id: `live-${t.id}`,
+              name: t.name,
+              cuisine: t.cuisine || 'Cuisine',
+              description: t.description || '',
+              locationName: t.live_location.address,
+              coordinates: { lat: t.live_location.lat, lng: t.live_location.lng },
+              rating: 0,
+              imageUrl: t.photo_url || undefined,
+              isOpen: true,
+              hours: `${untilStr ? `En service · jusqu'à ${untilStr}` : 'En service'}${freshness}`,
+              phone: t.phone || undefined,
+              website: t.website || undefined,
+              menuText: t.menu,
+              priceRange: t.price_range,
+              openingHours: t.opening_hours,
+              weeklySchedule: t.schedule,
+              knownLocations: t.known_locations,
+          };
       }
       return {
-          id: `live-${t.id}`,
+          id: `db-${t.id}`,
           name: t.name,
           cuisine: t.cuisine || 'Cuisine',
           description: t.description || '',
-          locationName: t.live_location.address,
-          coordinates: { lat: t.live_location.lat, lng: t.live_location.lng },
+          locationName: t.known_locations || 'Emplacements variables',
           rating: 0,
           imageUrl: t.photo_url || undefined,
-          isOpen: true,
-          hours: `${untilStr ? `En service · jusqu'à ${untilStr}` : 'En service'}${freshness}`,
+          isOpen: false,
+          hours: t.opening_hours || 'Horaires sur le profil',
           phone: t.phone || undefined,
           website: t.website || undefined,
+          menuText: t.menu,
+          priceRange: t.price_range,
+          openingHours: t.opening_hours,
+          weeklySchedule: t.schedule,
+          knownLocations: t.known_locations,
       };
   };
 
@@ -240,13 +265,21 @@ const App: React.FC = () => {
                 fetchLiveTrucks(),
             ]);
             const { trucks: newTrucks, sources: newSources } = truckResult;
-            const liveAsFoodTrucks = live.map(liveTruckToFoodTruck).filter((x): x is FoodTruck => x !== null);
+            // Tous les trucks BDD → FoodTruck (en LIVE si actif, sinon en "connu" avec emplacements habituels)
+            const dbTrucks = live.map(liveTruckToFoodTruck).filter((x): x is FoodTruck => x !== null);
+            // Les LIVE (avec id commence par "live-") restent prioritaires pour l'affichage en tête
+            const liveOnly = dbTrucks.filter(t => t.id.startsWith('live-'));
+            const offlineDb = dbTrucks.filter(t => t.id.startsWith('db-'));
+            // Dédup contre les statiques : on skip un statique si son nom existe déjà en BDD
+            const normName = (s: string) => s.toLowerCase().replace(/[\s&()'’]/g, '').trim();
+            const dbNames = new Set(dbTrucks.map(t => normName(t.name)));
+            const filteredStatic = newTrucks.filter(t => !dbNames.has(normName(t.name)));
             setAllTrucks(newTrucks);
             setSources(newSources);
             setReportTrucks(community);
-            setLiveTrucks(liveAsFoodTrucks);
-            // Ordre : LIVE d'abord (premium), puis signalements communautaires, puis statiques
-            setDisplayedTrucks([...liveAsFoodTrucks, ...community, ...newTrucks]);
+            setLiveTrucks(liveOnly);
+            // Ordre : LIVE d'abord (premium), puis signalements communautaires, puis BDD offline, puis statiques non dupliqués
+            setDisplayedTrucks([...liveOnly, ...community, ...offlineDb, ...filteredStatic]);
         } catch (err) {
             console.error('Erreur chargement initial:', err);
         } finally {
@@ -291,15 +324,15 @@ const App: React.FC = () => {
   };
 
   // --- Filtering Logic for Landing Screen ---
-  // Les LIVE (BDD + emplacement actif) sont toujours en tête : ils représentent les partenaires actifs.
+  // On garde la liste complète que loadData a construite : LIVE en tête puis signalements puis BDD offline puis statiques.
   const handleShowAll = () => {
-      setDisplayedTrucks([...liveTrucks, ...reportTrucks, ...allTrucks]);
       setCurrentView(AppView.HOME);
+      // On ne touche pas à displayedTrucks : elle contient déjà tout dans le bon ordre depuis loadData.
   };
 
   const executeProximitySearch = (location: {lat: number, lng: number}) => {
-      // Les LIVE restent en tête (partenaires = priorité), puis les 5 plus proches parmi le reste
-      const rest = [...reportTrucks, ...allTrucks].sort((a, b) => {
+      // LIVE en tête (partenaires = priorité), puis 5 plus proches parmi le reste
+      const rest = displayedTrucks.filter(t => !liveTrucks.includes(t)).sort((a, b) => {
           const distA = a.coordinates ? getDistance(location.lat, location.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
           const distB = b.coordinates ? getDistance(location.lat, location.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
           return distA - distB;
@@ -562,6 +595,8 @@ const App: React.FC = () => {
       {/* Modal "Y aller" : choix d'appli de nav externe (Plan / Google Maps / mobiliteit.lu) */}
       <NavChoiceModal
           target={navTarget}
+          from={userLocation}
+          truckId={selectedTruck?.id}
           onClose={() => setNavTarget(null)}
           onOpenInternalMap={() => { setNavTarget(null); setCurrentView(AppView.MAP_TRANSPORT); }}
       />

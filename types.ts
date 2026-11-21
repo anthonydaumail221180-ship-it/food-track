@@ -25,6 +25,12 @@ export interface FoodTruck {
   hours?: string;
   menu?: MenuItem[];
   status?: 'pending' | 'rejected'; // signalement utilisateur non encore validé (visible par son auteur seul)
+  // Champs enrichis depuis la BDD trucks (menu, prix, horaires, planning hebdo, lieux habituels)
+  menuText?: string;
+  priceRange?: string;
+  openingHours?: string;
+  weeklySchedule?: string;
+  knownLocations?: string;
 }
 
 export interface SocialPost {

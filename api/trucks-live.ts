@@ -25,12 +25,11 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') return res.status(405).end();
 
   try {
-    // Tous les trucks de la BDD (hors statique) + leur dernier emplacement si status=open
-    const trucks = await sb('trucks?order=updated_at.desc&select=id,name,cuisine,description,photo_url,phone,instagram,facebook,website,updated_at');
+    // Tous les trucks de la BDD + leur dernier emplacement si status=open
+    // Inclut les champs riches (menu, horaires, planning, prix, emplacements connus) pour la fiche publique
+    const trucks = await sb('trucks?order=updated_at.desc&select=id,name,cuisine,description,photo_url,phone,instagram,facebook,website,menu,price_range,opening_hours,schedule,known_locations,updated_at');
     const nowIso = new Date().toISOString();
-    // Emplacements actifs : status open ET open_until > now
     const locations = await sb(`truck_locations?status=eq.open&open_until=gt.${nowIso}&order=created_at.desc&select=truck_id,lat,lng,address,open_from,open_until,last_pinged_at`);
-    // Garde seulement le dernier par truck
     const latestByTruck: Record<string, any> = {};
     for (const loc of locations) {
       if (!latestByTruck[loc.truck_id]) latestByTruck[loc.truck_id] = loc;
