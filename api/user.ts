@@ -24,7 +24,15 @@ const sb = async (path: string, init: any = {}) => {
     console.error(`[supabase] ${r.status} ${r.statusText} on ${url} :: ${body.slice(0, 500)}`);
     throw new Error('db');
   }
-  return r.json();
+  // 204 No Content, body vide, DELETE sans retour : on renvoie [] par défaut
+  if (r.status === 204) return [];
+  const text = await r.text();
+  if (!text) return [];
+  try { return JSON.parse(text); }
+  catch (e: any) {
+    console.error(`[supabase] parse fail on ${url} :: ${text.slice(0, 200)}`);
+    return [];
+  }
 };
 
 const PBKDF2_ITERATIONS = 100_000;
