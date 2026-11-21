@@ -1,5 +1,5 @@
 // POST /api/user/login { email, password } -> { token, user }
-import { URL_, KEY, sb, verifyPassword, genSessionToken, normalizeEmail } from './_authHelpers';
+import { URL_, KEY, sb, verifyPassword, genSessionToken, normalizeEmail } from '../lib/authHelpers';
 
 export default async function handler(req: any, res: any) {
   if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });

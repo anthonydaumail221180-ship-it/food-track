@@ -3,7 +3,7 @@
 // Sans provider email configuré : le code est LOGGÉ dans Vercel logs (visible par l'admin).
 // L'admin le transmet manuellement à l'utilisateur (SMS/WhatsApp) pour cette version MVP.
 // Future : brancher Resend ou autre pour envoyer par email automatiquement.
-import { URL_, KEY, sb, gen6DigitCode, normalizeEmail } from './_authHelpers';
+import { URL_, KEY, sb, gen6DigitCode, normalizeEmail } from '../lib/authHelpers';
 
 export default async function handler(req: any, res: any) {
   if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });

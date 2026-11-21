@@ -1,7 +1,7 @@
 // GET /api/user/me : header x-session-token -> { user }
 // POST /api/user/me : header x-session-token, body { nickname?, avatarId?, language?, phone? } -> { user }
 // DELETE /api/user/me : header x-session-token (= logout)
-import { URL_, KEY, sb, authenticateUser } from './_authHelpers';
+import { URL_, KEY, sb, authenticateUser } from '../lib/authHelpers';
 
 export default async function handler(req: any, res: any) {
   if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });

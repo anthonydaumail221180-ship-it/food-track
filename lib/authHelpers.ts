@@ -1,6 +1,6 @@
 // Helpers d'authentification partagés : hash PBKDF2, génération de token, lecture de session.
-// Pas de dépendance externe : on utilise le module crypto natif de Node.
-import { createHash, pbkdf2Sync, randomBytes, timingSafeEqual } from 'crypto';
+// Placé hors de /api pour éviter que Vercel essaie d'en faire un endpoint.
+import { pbkdf2Sync, randomBytes, timingSafeEqual } from 'crypto';
 
 export const URL_ = process.env.SUPABASE_URL;
 export const KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -46,18 +46,13 @@ export const verifyPassword = (password: string, stored: string): boolean => {
   }
 };
 
-export const genSessionToken = (): string => {
-  // 32 octets -> ~43 char base64url
-  return randomBytes(32).toString('base64url');
-};
+export const genSessionToken = (): string => randomBytes(32).toString('base64url');
 
 export const gen6DigitCode = (): string => {
-  // 000000 - 999999, zero-padded
   const n = Math.floor(Math.random() * 1_000_000);
   return String(n).padStart(6, '0');
 };
 
-// Récupère l'utilisateur à partir du header x-session-token.
 export const authenticateUser = async (req: any): Promise<any | null> => {
   const token = String(req.headers['x-session-token'] || '').trim();
   if (!token || token.length < 32 || token.length > 128) return null;
@@ -73,5 +68,4 @@ export const authenticateUser = async (req: any): Promise<any | null> => {
 };
 
 export const normalizeEmail = (e: any) => String(e || '').trim().toLowerCase();
-
 export const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length < 150;

@@ -1,6 +1,6 @@
 // POST /api/user/reset-password { email, code, newPassword } -> { token, user }
 // Si tout OK : marque le code comme utilisé, change le mdp, crée une nouvelle session.
-import { URL_, KEY, sb, hashPassword, genSessionToken, normalizeEmail } from './_authHelpers';
+import { URL_, KEY, sb, hashPassword, genSessionToken, normalizeEmail } from '../lib/authHelpers';
 
 export default async function handler(req: any, res: any) {
   if (!URL_ || !KEY) return res.status(503).json({ error: 'not_configured' });
