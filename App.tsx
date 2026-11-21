@@ -24,6 +24,8 @@ import { geocodeAddressAgent } from './services/geocode';
 import { getUserPosition } from './services/location';
 import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight, Coins } from 'lucide-react';
 import { TasteHistory } from './components/TasteHistory';
+import { NavChoiceModal } from './components/NavChoiceModal';
+import { NavTarget } from './services/mapsNavigation';
 
 // Helper: Calculate distance in km
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -290,9 +292,23 @@ const App: React.FC = () => {
   };
 
   // --- Navigation Handlers ---
+  // "Y aller" : ouvre un bottom sheet qui laisse l'utilisateur choisir son appli (Plan / Google / mobiliteit.lu)
+  // ou basculer sur la vue interne (carte + conseil IA) via NavigationHelper.
+  const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
   const handleNavigateToTruck = (truck: FoodTruck) => {
+    if (!truck.coordinates) {
+      // Pas de coordonnées : fallback sur la vue interne qui gère l'absence
+      setSelectedTruck(truck);
+      setCurrentView(AppView.MAP_TRANSPORT);
+      return;
+    }
     setSelectedTruck(truck);
-    setCurrentView(AppView.MAP_TRANSPORT);
+    setNavTarget({
+      lat: truck.coordinates.lat,
+      lng: truck.coordinates.lng,
+      address: truck.locationName,
+      name: truck.name,
+    });
   };
 
   const handleOpenProfile = (truck: FoodTruck) => {
@@ -421,12 +437,13 @@ const App: React.FC = () => {
         return <NavigationHelper targetTruck={selectedTruck} onBack={() => setCurrentView(AppView.HOME)} />;
       case AppView.PROFILE:
         return selectedTruck ? (
-            <TruckProfile 
-                truck={selectedTruck} 
-                onBack={() => setCurrentView(AppView.HOME)} 
+            <TruckProfile
+                truck={selectedTruck}
+                onBack={() => setCurrentView(AppView.HOME)}
                 toggleFavorite={toggleFavorite}
                 isFavorite={favorites.includes(selectedTruck.id)}
                 onCheckIn={handleAddCheckIn}
+                onNavigate={handleNavigateToTruck}
             />
         ) : <div />;
       case AppView.USER_PROFILE:
@@ -486,6 +503,13 @@ const App: React.FC = () => {
       {!isFullScreen && currentView !== AppView.LANDING && (
           <FloatingMenu currentView={currentView} onViewChange={setCurrentView} />
       )}
+
+      {/* Modal "Y aller" : choix d'appli de nav externe (Plan / Google Maps / mobiliteit.lu) */}
+      <NavChoiceModal
+          target={navTarget}
+          onClose={() => setNavTarget(null)}
+          onOpenInternalMap={() => { setNavTarget(null); setCurrentView(AppView.MAP_TRANSPORT); }}
+      />
 
       {/* Toast (remplace alert() bloquant) */}
       {toast && (

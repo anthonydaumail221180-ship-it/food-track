@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { truckImage } from '../services/truckImage';
 import { FoodTruck, MenuItem, CheckIn } from '../types';
 import { fetchTruckMenuAgent } from '../services/geminiService';
-import { MapPin, Star, Phone, Globe, Clock, ArrowLeft, Heart, Edit3, Utensils, Send, UserPlus } from 'lucide-react';
+import { MapPin, Star, Phone, Globe, Clock, ArrowLeft, Heart, Edit3, Utensils, Send, UserPlus, Navigation2 } from 'lucide-react';
 
 interface TruckProfileProps {
   truck: FoodTruck;
@@ -11,9 +11,10 @@ interface TruckProfileProps {
   toggleFavorite: (id: string) => void;
   isFavorite: boolean;
   onCheckIn: (checkIn: CheckIn) => void;
+  onNavigate?: (truck: FoodTruck) => void;
 }
 
-export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggleFavorite, isFavorite, onCheckIn }) => {
+export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggleFavorite, isFavorite, onCheckIn, onNavigate }) => {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   
@@ -150,6 +151,18 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
         </div>
 
         <div className="p-6 space-y-8">
+            {/* Bouton "Y aller" principal : ouvre le choix d'appli de nav externe */}
+            {onNavigate && truck.coordinates && (
+                <button
+                    onClick={() => onNavigate(truck)}
+                    className="w-full -mt-12 relative z-10 bg-brand-gradient text-white rounded-2xl p-4 shadow-glow flex items-center justify-center gap-3 font-bold active:scale-[0.98] transition-transform"
+                >
+                    <Navigation2 size={20} />
+                    Y aller
+                    <span className="text-xs font-normal opacity-85 hidden sm:inline">· Plan / Google / mobiliteit.lu</span>
+                </button>
+            )}
+
             {/* Info Section */}
             <div className="flex justify-between items-center py-2 rounded-2xl border-b border-gray-100 pb-6">
                 <div className="text-center flex-1 border-r border-gray-100">
