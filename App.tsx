@@ -18,7 +18,7 @@ import { ModerationPanel } from './components/ModerationPanel';
 import { TruckPortal } from './components/TruckPortal';
 import { fetchCommunityTrucks } from './services/reportsService';
 import { fetchLiveTrucks, LiveTruck } from './services/truckPortal';
-import { fetchMe as apiFetchMe, logout as apiLogout, fetchFavorites, addFavoriteRemote, removeFavoriteRemote, AuthUser } from './services/userAuth';
+import { fetchMe as apiFetchMe, logout as apiLogout, fetchFavorites, addFavoriteRemote, removeFavoriteRemote, fetchCheckins, addCheckinRemote, AuthUser } from './services/userAuth';
 import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn } from './types';
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
@@ -148,16 +148,19 @@ const App: React.FC = () => {
   const [locationError, setLocationError] = useState("");
 
   // Convertit AuthUser (API) en UserProfileType (expected by le reste de l'app)
-  const authToProfile = (u: AuthUser): UserProfileType => {
-      // Récupère l'historique local s'il existe (il reste côté client pour l'instant)
-      let history: any[] = [];
-      try {
-          const raw = localStorage.getItem(`foodtrack_history_${u.id}`);
-          if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) history = parsed;
-          }
-      } catch { /* ignore */ }
+  // L'historique vient de la BDD maintenant (fetchCheckins), chargé au bootstrap
+  const authToProfile = (u: AuthUser, remoteHistory?: CheckIn[]): UserProfileType => {
+      let history: CheckIn[] = remoteHistory || [];
+      if (!remoteHistory) {
+          // Fallback localStorage pour les anciens appareils
+          try {
+              const raw = localStorage.getItem(`foodtrack_history_${u.id}`);
+              if (raw) {
+                  const parsed = JSON.parse(raw);
+                  if (Array.isArray(parsed)) history = parsed;
+              }
+          } catch { /* ignore */ }
+      }
       return {
           firstName: u.firstName,
           lastName: u.lastName,
@@ -178,15 +181,25 @@ const App: React.FC = () => {
       let mounted = true;
       const bootstrap = async () => {
           const authUser = await apiFetchMe();
-          // Charge les favoris BDD en parallèle pour sync multi-appareil
-          const remoteFavs = authUser ? await fetchFavorites() : [];
+          // Charge favoris + historique BDD en parallèle pour sync multi-appareil
+          const [remoteFavs, remoteCheckins] = authUser
+              ? await Promise.all([fetchFavorites(), fetchCheckins()])
+              : [[] as string[], [] as any[]];
+          const remoteHistory: CheckIn[] = remoteCheckins.map((c: any) => ({
+              id: c.id,
+              truckId: c.truck_id,
+              truckName: c.truck_name,
+              itemName: c.item_name,
+              date: c.created_at,
+              taggedFriend: c.tagged_friend_name ? { name: c.tagged_friend_name, phone: c.tagged_friend_phone, status: 'unknown' as const } : undefined,
+          }));
           const elapsed = Date.now() - start;
           const wait = Math.max(0, 1500 - elapsed);
           setTimeout(() => {
               if (!mounted) return;
               setShowSplash(false);
               if (authUser) {
-                  setUser(authToProfile(authUser));
+                  setUser(authToProfile(authUser, remoteHistory));
                   // Si on a des favoris en BDD, ils gagnent sur le localStorage
                   if (remoteFavs.length > 0) {
                       setFavorites(remoteFavs);
@@ -335,12 +348,20 @@ const App: React.FC = () => {
       setCurrentView(AppView.ONBOARDING);
   };
 
-  // --- Check-In Logic ---
+  // --- Check-In Logic (sync BDD + localStorage backup) ---
   const handleAddCheckIn = (checkIn: CheckIn) => {
       if (!user) return;
       const updatedUser = { ...user, history: [checkIn, ...user.history] };
       setUser(updatedUser);
       try { localStorage.setItem('foodtrack_user', JSON.stringify(updatedUser)); } catch { /* ignore */ }
+      // Sync vers BDD (fire-and-forget)
+      addCheckinRemote({
+          truck_id: checkIn.truckId,
+          truck_name: checkIn.truckName,
+          item_name: checkIn.itemName,
+          tagged_friend_name: checkIn.taggedFriend?.name,
+          tagged_friend_phone: checkIn.taggedFriend?.phone,
+      }).catch(() => {});
       showToast("Grub validé ! Ajouté à votre historique.");
   };
 

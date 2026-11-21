@@ -124,6 +124,38 @@ export const forgotPassword = async (email: string): Promise<{ ok: boolean; mess
   } catch { return { ok: false, message: "Pas de connexion." }; }
 };
 
+// --- Check-ins (Grub) synchronisés en BDD ---
+export interface RemoteCheckin {
+  id: string;
+  truck_id: string;
+  truck_name: string;
+  item_name: string;
+  tagged_friend_name?: string | null;
+  tagged_friend_phone?: string | null;
+  created_at: string;
+}
+export const fetchCheckins = async (): Promise<RemoteCheckin[]> => {
+  if (!getSessionToken()) return [];
+  try {
+    const r = await fetch('/api/user?action=checkin_list', { headers: hdr() });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return Array.isArray(d.checkins) ? d.checkins : [];
+  } catch { return []; }
+};
+export const addCheckinRemote = async (payload: {
+  truck_id: string; truck_name: string; item_name: string;
+  tagged_friend_name?: string; tagged_friend_phone?: string;
+}): Promise<RemoteCheckin | null> => {
+  if (!getSessionToken()) return null;
+  try {
+    const r = await callUser('checkin_add', payload);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.checkin || null;
+  } catch { return null; }
+};
+
 // --- Favoris synchronisés en BDD (sync entre appareils) ---
 export const fetchFavorites = async (): Promise<string[]> => {
   if (!getSessionToken()) return [];

@@ -216,6 +216,25 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ ok: true });
     }
 
+    // --- Check-ins (Grub) : add / list ---
+    if (action === 'checkin_add' || action === 'checkin_list') {
+      const user = await authenticateUser(req);
+      if (!user) return res.status(401).json({ error: 'not_authenticated' });
+      if (action === 'checkin_list') {
+        const rows = await sb(`user_checkins?user_id=eq.${user.id}&select=id,truck_id,truck_name,item_name,tagged_friend_name,tagged_friend_phone,created_at&order=created_at.desc&limit=200`);
+        return res.status(200).json({ checkins: rows });
+      }
+      const truckId = String(b.truck_id || '').trim().slice(0, 80);
+      const truckName = String(b.truck_name || '').trim().slice(0, 120);
+      const itemName = String(b.item_name || '').trim().slice(0, 120);
+      if (!truckId || !truckName || !itemName) return res.status(400).json({ error: 'missing_fields' });
+      const payload: any = { user_id: user.id, truck_id: truckId, truck_name: truckName, item_name: itemName };
+      if (b.tagged_friend_name) payload.tagged_friend_name = String(b.tagged_friend_name).trim().slice(0, 60);
+      if (b.tagged_friend_phone) payload.tagged_friend_phone = String(b.tagged_friend_phone).trim().slice(0, 25);
+      const [row] = await sb('user_checkins', { method: 'POST', body: JSON.stringify(payload) });
+      return res.status(201).json({ checkin: row });
+    }
+
     // --- POST reset ---
     if (action === 'reset') {
       const email = normalizeEmail(b.email);
