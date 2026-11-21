@@ -205,7 +205,10 @@ export default async function handler(req: any, res: any) {
 
     return res.status(400).json({ error: 'unknown_action' });
   } catch (e: any) {
-    console.error(`[user ${action}] crash: ${e?.message || e}`);
-    return res.status(500).json({ error: 'server' });
+    const msg = e?.message || String(e);
+    const stack = (e?.stack || '').split('\n').slice(0, 5).join(' | ');
+    console.error(`[user ${action}] crash: ${msg} :: ${stack}`);
+    // En mode diagnostic, renvoie le détail dans la réponse pour débugger (à retirer plus tard)
+    return res.status(500).json({ error: 'server', _debug: { action, message: msg } });
   }
 }
