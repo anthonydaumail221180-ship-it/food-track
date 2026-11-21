@@ -46,6 +46,14 @@ const errorFromCode = (status: number, code?: string): string => {
   return "Service momentanément indisponible. Réessayez plus tard.";
 };
 
+// Toutes les actions user passent par l'endpoint unifié /api/user?action=XXX
+const callUser = async (action: string, payload: any, method: 'POST' | 'GET' | 'DELETE' = 'POST') => {
+  const url = `/api/user?action=${encodeURIComponent(action)}`;
+  const init: RequestInit = { method, headers: hdr() };
+  if (method !== 'GET' && method !== 'DELETE') init.body = JSON.stringify(payload);
+  return fetch(url, init);
+};
+
 export const signup = async (payload: {
   email: string; password: string;
   firstName: string; lastName: string;
@@ -53,7 +61,7 @@ export const signup = async (payload: {
   language?: string; avatarId?: string;
 }): Promise<AuthResult> => {
   try {
-    const r = await fetch('/api/user-signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const r = await callUser('signup', payload);
     if (!r.ok) {
       const e = await r.json().catch(() => ({} as any));
       return { ok: false, message: errorFromCode(r.status, e.error) };
@@ -66,7 +74,7 @@ export const signup = async (payload: {
 
 export const login = async (email: string, password: string): Promise<AuthResult> => {
   try {
-    const r = await fetch('/api/user-login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    const r = await callUser('login', { email, password });
     if (!r.ok) {
       const e = await r.json().catch(() => ({} as any));
       return { ok: false, message: errorFromCode(r.status, e.error) };
@@ -81,7 +89,7 @@ export const fetchMe = async (): Promise<AuthUser | null> => {
   const t = getSessionToken();
   if (!t) return null;
   try {
-    const r = await fetch('/api/user-me', { headers: hdr() });
+    const r = await fetch('/api/user?action=me', { headers: hdr() });
     if (!r.ok) {
       if (r.status === 401) setSessionToken(null);
       return null;
@@ -93,7 +101,7 @@ export const fetchMe = async (): Promise<AuthUser | null> => {
 
 export const updateMe = async (patch: Partial<AuthUser>): Promise<AuthUser | null> => {
   try {
-    const r = await fetch('/api/user-me', { method: 'POST', headers: hdr(), body: JSON.stringify(patch) });
+    const r = await callUser('update', patch);
     if (!r.ok) return null;
     const data = await r.json();
     return data.user;
@@ -102,14 +110,14 @@ export const updateMe = async (patch: Partial<AuthUser>): Promise<AuthUser | nul
 
 export const logout = async (): Promise<void> => {
   try {
-    await fetch('/api/user-me', { method: 'DELETE', headers: hdr() });
+    await fetch('/api/user', { method: 'DELETE', headers: hdr() });
   } catch { /* ignore */ }
   setSessionToken(null);
 };
 
 export const forgotPassword = async (email: string): Promise<{ ok: boolean; message: string }> => {
   try {
-    const r = await fetch('/api/user-forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+    const r = await callUser('forgot', { email });
     if (!r.ok) return { ok: false, message: "Service indisponible." };
     const data = await r.json();
     return { ok: true, message: data.hint || "Si l'email existe, un code a été envoyé." };
@@ -118,7 +126,7 @@ export const forgotPassword = async (email: string): Promise<{ ok: boolean; mess
 
 export const resetPassword = async (email: string, code: string, newPassword: string): Promise<AuthResult> => {
   try {
-    const r = await fetch('/api/user-reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code, newPassword }) });
+    const r = await callUser('reset', { email, code, newPassword });
     if (!r.ok) {
       const e = await r.json().catch(() => ({} as any));
       return { ok: false, message: errorFromCode(r.status, e.error) };
