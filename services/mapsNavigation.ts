@@ -30,22 +30,29 @@ export const openGoogleMaps = (t: NavTarget, mode: NavMode = 'driving') => {
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-// Mobiliteit.lu - planificateur de transports publics Luxembourg.
-// Utilise l'adresse (fallback coordonnées) car leur planner raisonne mieux en texte.
-export const openMobiliteit = (t: NavTarget) => {
-  // Le planner accepte des coords ; on inclut l'adresse pour aider le matching.
-  const to = t.address ? `${t.address}` : `${t.lat},${t.lng}`;
-  const url = `https://www.mobiliteit.lu/fr/routing/?to=${encodeURIComponent(to)}&toLat=${t.lat}&toLon=${t.lng}`;
+// Transports publics Luxembourg : on utilise Google Maps en mode transit car il consomme
+// les données GTFS officielles des CFL et donne un vrai itinéraire pré-rempli (ligne de bus,
+// changements, horaires temps réel), là où mobiliteit.lu n'accepte pas de deep-link public.
+export const openTransit = (t: NavTarget) => {
+  const url = `https://www.google.com/maps/dir/?api=1&destination=${t.lat},${t.lng}&travelmode=transit`;
   window.open(url, '_blank', 'noopener,noreferrer');
 };
 
-// Métadonnées des 3 options, pour alimenter le modal de choix.
+// Lien secondaire vers mobiliteit.lu : on copie l'adresse de destination dans le presse-papiers
+// et on ouvre leur planner, puis l'utilisateur colle le texte dans le champ Destination.
+// (Leur SPA n'expose pas d'URL publique avec paramètres de trajet.)
+export const openMobiliteit = async (t: NavTarget) => {
+  const dest = t.address ? `${t.name ? t.name + ' - ' : ''}${t.address}` : `${t.lat},${t.lng}`;
+  try { await navigator.clipboard.writeText(dest); } catch { /* ignore */ }
+  window.open('https://www.mobiliteit.lu/fr/trajet/', '_blank', 'noopener,noreferrer');
+};
+
+// Métadonnées des options principales (Apple, Google, Transit).
 export interface NavProvider {
-  id: 'apple' | 'google' | 'mobiliteit';
+  id: 'apple' | 'google' | 'transit' | 'mobiliteit';
   label: string;
   sublabel: string;
   action: (t: NavTarget) => void;
-  // Indique si on recommande cette option sur la plateforme actuelle
   recommended?: boolean;
 }
 
@@ -67,10 +74,10 @@ export const getNavProviders = (): NavProvider[] => {
       recommended: !ios,
     },
     {
-      id: 'mobiliteit',
-      label: 'mobiliteit.lu',
-      sublabel: 'Transports publics Luxembourg',
-      action: openMobiliteit,
+      id: 'transit',
+      label: 'Bus & Train',
+      sublabel: 'Trajet CFL en temps réel (Google Maps transit)',
+      action: openTransit,
     },
   ];
 };

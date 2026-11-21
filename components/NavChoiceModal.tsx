@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, Navigation2, Map as MapIcon, Bus, X, ExternalLink, Car, Bike, Footprints, Zap, Loader2 } from 'lucide-react';
-import { getNavProviders, NavTarget } from '../services/mapsNavigation';
+import { MapPin, Navigation2, Map as MapIcon, Bus, X, ExternalLink, Car, Bike, Footprints, Zap, Loader2, Train } from 'lucide-react';
+import { getNavProviders, NavTarget, openMobiliteit } from '../services/mapsNavigation';
 import { previewRoute, RoutePreview, NavMode, formatDuration, formatDistance } from '../services/routePreview';
 import { saveLastDest } from '../services/lastDestination';
 import { getUserPosition } from '../services/location';
@@ -20,6 +20,7 @@ interface NavChoiceModalProps {
 const providerIcon: Record<string, React.ReactNode> = {
   apple: <MapIcon size={22} />,
   google: <Navigation2 size={22} />,
+  transit: <Train size={22} />,
   mobiliteit: <Bus size={22} />,
 };
 
@@ -27,6 +28,7 @@ const providerIcon: Record<string, React.ReactNode> = {
 const providerAccent: Record<string, string> = {
   apple: 'bg-blue-50 text-blue-700 border-blue-100',
   google: 'bg-green-50 text-green-700 border-green-100',
+  transit: 'bg-amber-50 text-amber-800 border-amber-100',
   mobiliteit: 'bg-amber-50 text-amber-800 border-amber-100',
 };
 
@@ -77,10 +79,16 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
   // Lance le provider adapté au mode "le plus rapide"
   const openBestRoute = () => {
     if (!preview) return;
-    const providerId = preview.fastest === 'transit' ? 'mobiliteit' : 'google';
+    const providerId = preview.fastest === 'transit' ? 'transit' : 'google';
     const p = providers.find(x => x.id === providerId) || providers.find(x => x.id === 'google') || providers[0];
-    if (truckId) saveLastDest({ truckId, name: target.name || target.address || 'Food truck', address: target.address || '', lat: target.lat, lng: target.lng, provider: p.id });
+    if (truckId) saveLastDest({ truckId, name: target.name || target.address || 'Food truck', address: target.address || '', lat: target.lat, lng: target.lng, provider: p.id as any });
     p.action(target);
+    onClose();
+  };
+
+  // Lien secondaire : horaires CFL officiels via mobiliteit.lu (copie l'adresse au clipboard)
+  const openMobiliteitSite = () => {
+    openMobiliteit(target);
     onClose();
   };
 
@@ -175,6 +183,16 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
             </button>
           ))}
         </div>
+
+        {/* Lien secondaire pour les horaires CFL officiels */}
+        <button
+          onClick={openMobiliteitSite}
+          className="w-full mt-2 py-2.5 rounded-xl bg-white border border-brand-border text-xs font-bold text-brand-muted hover:border-amber-200 hover:text-amber-800 transition flex items-center justify-center gap-2"
+          title="Ouvre mobiliteit.lu avec l'adresse copiée dans le presse-papiers"
+        >
+          <Bus size={14} /> Horaires officiels CFL (mobiliteit.lu)
+          <ExternalLink size={12} className="opacity-60" />
+        </button>
 
         {/* Option secondaire : vue interne (map + conseil IA) */}
         {onOpenInternalMap && (
