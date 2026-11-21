@@ -134,6 +134,7 @@ export enum AppView {
   NOTIFICATIONS = 'NOTIFICATIONS',
   QUIZ = 'QUIZ',
   REPORT = 'REPORT', // Signaler un food truck
-  FEED = 'FEED', // Fil d'actu
-  ADMIN_DASHBOARD = 'ADMIN_DASHBOARD' 
+  FEED = 'FEED', // Fil d'actu + widget tips
+  TASTE_HISTORY = 'TASTE_HISTORY', // Historique sympa + goûts users
+  ADMIN_DASHBOARD = 'ADMIN_DASHBOARD'
 }

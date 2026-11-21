@@ -65,7 +65,7 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
         {selectedItem && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-slide-up">
                 <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl">
-                    <h3 className="font-display text-2xl text-brand-text mb-1">Miam ! 😋</h3>
+                    <h3 className="font-display text-2xl text-brand-text mb-1">Grub ! 😋</h3>
                     <p className="text-gray-500 text-sm mb-4">Vous avez dégusté : <span className="font-bold text-brand-orange">{selectedItem.name}</span></p>
                     
                     <div className="space-y-4">

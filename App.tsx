@@ -22,7 +22,8 @@ import { AppView, FoodTruck, UserProfile as UserProfileType, TrendItem, CheckIn 
 import { fetchFoodTrucksAgent } from './services/trucksService';
 import { geocodeAddressAgent } from './services/geocode';
 import { getUserPosition } from './services/location';
-import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight } from 'lucide-react';
+import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight, Coins } from 'lucide-react';
+import { TasteHistory } from './components/TasteHistory';
 
 // Helper: Calculate distance in km
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -49,14 +50,14 @@ const QUARTIERS = [
 const FloatingMenu: React.FC<{ currentView: AppView, onViewChange: (v: AppView) => void }> = ({ currentView, onViewChange }) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    // MENU ITEMS UPDATED - Profil removed, names updated
+    // Menu refondu : Grub (liste trucks), Feed (actu + widget tips), Taste (historique gouts),
+    // Tips (quiz, icone piece), Spot (anciennement Signaler)
     const menuItems = [
-        { view: AppView.HOME, icon: Utensils, label: "Miam" }, 
-        { view: AppView.FEED, icon: Newspaper, label: "Actu" },
-        { view: AppView.SOCIAL, icon: Flame, label: "Taste" }, 
-        { view: AppView.VOTE, icon: Heart, label: "Like" }, 
-        { view: AppView.QUIZ, icon: Brain, label: "Tips" }, 
-        { view: AppView.REPORT, icon: Megaphone, label: "Signaler" },
+        { view: AppView.HOME, icon: Utensils, label: "Grub" },
+        { view: AppView.FEED, icon: Flame, label: "Feed" },
+        { view: AppView.TASTE_HISTORY, icon: Heart, label: "Taste" },
+        { view: AppView.QUIZ, icon: Coins, label: "Tips" },
+        { view: AppView.REPORT, icon: Megaphone, label: "Spot" },
     ];
 
     return (
@@ -231,7 +232,7 @@ const App: React.FC = () => {
       const updatedUser = { ...user, history: [checkIn, ...user.history] };
       setUser(updatedUser);
       try { localStorage.setItem('foodtrack_user', JSON.stringify(updatedUser)); } catch { /* ignore */ }
-      showToast("Miam validé ! Ajouté à votre historique.");
+      showToast("Grub validé ! Ajouté à votre historique.");
   };
 
   // --- Admin Logic ---
@@ -367,7 +368,7 @@ const App: React.FC = () => {
                             className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-green"
                         >
                             <div className="w-10 h-10 rounded-xl bg-brand-green/10 flex items-center justify-center"><Megaphone size={20} className="text-brand-green" /></div>
-                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Signaler un food truck</h3>
+                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Spot un food truck</h3>
                         </button>
                         <button 
                             onClick={() => setCurrentView(AppView.FEED)}
@@ -400,18 +401,21 @@ const App: React.FC = () => {
                   onDone={async () => { const c = await fetchCommunityTrucks(); setReportTrucks(c); setDisplayedTrucks([...c, ...allTrucks]); setCurrentView(AppView.HOME); }}
                />;
       case AppView.FEED:
-        return <NewsFeed />;
+        return <NewsFeed onPlayQuiz={() => setCurrentView(AppView.QUIZ)} />;
+      case AppView.TASTE_HISTORY:
+        return <TasteHistory user={user} onPlayQuiz={() => setCurrentView(AppView.QUIZ)} />;
       case AppView.SOCIAL:
-        return <SocialWall 
-                publishedTrends={publishedTrends} 
+        return <SocialWall
+                publishedTrends={publishedTrends}
                 onPlayQuiz={() => setCurrentView(AppView.QUIZ)}
             />;
       case AppView.VOTE:
         return <VotingBooth />;
       case AppView.QUIZ:
         return <QuizGame onComplete={(s) => {
+            try { localStorage.setItem('ft_last_tips_score', JSON.stringify({ score: s, ts: Date.now() })); } catch { /* ignore */ }
             showToast(`Vous avez marqué ${s} points !`);
-            setCurrentView(AppView.SOCIAL);
+            setCurrentView(AppView.FEED);
         }} />;
       case AppView.MAP_TRANSPORT:
         return <NavigationHelper targetTruck={selectedTruck} onBack={() => setCurrentView(AppView.HOME)} />;
