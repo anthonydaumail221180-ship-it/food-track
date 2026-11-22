@@ -83,16 +83,20 @@ const sendResetEmail = async (to: string, firstName: string, code: string): Prom
   const key = process.env.RESEND_API_KEY;
   if (!key) { console.log('[resend] RESEND_API_KEY manquant, email non envoyé'); return false; }
   const from = process.env.RESEND_FROM || 'LetzTrack <onboarding@resend.dev>';
-  const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f5f0;padding:24px;color:#1f1b16">
-<div style="max-width:480px;margin:0 auto;background:#fff;border-radius:20px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.06)">
-  <h1 style="margin:0 0 6px;font-size:22px">LëtzTrack 🌯</h1>
-  <p style="margin:0 0 20px;color:#7a6f63;font-size:14px">Réinitialisation du mot de passe</p>
-  <p style="font-size:15px;line-height:1.5">Bonjour ${firstName.replace(/[<>]/g, '')},</p>
-  <p style="font-size:15px;line-height:1.5">Voici votre code de réinitialisation. Il est valable <b>15 minutes</b>.</p>
-  <div style="font-size:34px;font-weight:800;letter-spacing:8px;text-align:center;background:linear-gradient(135deg,#ff7a3d,#ff3d8a);color:#fff;border-radius:14px;padding:18px;margin:18px 0">${code}</div>
-  <p style="font-size:13px;color:#7a6f63;line-height:1.5">Si vous n'êtes pas à l'origine de cette demande, ignorez ce mail — votre mot de passe actuel reste inchangé.</p>
-  <p style="font-size:12px;color:#aaa;margin-top:24px">— L'équipe LëtzTrack</p>
-</div></body></html>`;
+  const safeName = firstName.replace(/[<>]/g, '');
+  const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f5f0;padding:24px;color:#1f1b16;margin:0">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:20px"><tr><td style="padding:28px">
+  <h1 style="margin:0 0 6px 0;font-size:22px;color:#1f1b16">LetzTrack</h1>
+  <p style="margin:0 0 20px 0;color:#7a6f63;font-size:14px">Reinitialisation du mot de passe</p>
+  <p style="font-size:15px;line-height:1.5;color:#1f1b16;margin:0 0 10px 0">Bonjour ${safeName},</p>
+  <p style="font-size:15px;line-height:1.5;color:#1f1b16;margin:0 0 18px 0">Voici votre code de reinitialisation. Il est valable <b>15 minutes</b>.</p>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px 0"><tr><td align="center" bgcolor="#ff7a3d" style="background-color:#ff7a3d;border-radius:14px;padding:22px 10px">
+    <div style="font-size:38px;font-weight:800;letter-spacing:10px;color:#ffffff;font-family:Consolas,Menlo,monospace">${code}</div>
+  </td></tr></table>
+  <p style="font-size:16px;line-height:1.5;color:#1f1b16;margin:0 0 18px 0;text-align:center"><b>Votre code : ${code}</b></p>
+  <p style="font-size:13px;color:#7a6f63;line-height:1.5;margin:0 0 20px 0">Si vous n'etes pas a l'origine de cette demande, ignorez ce mail — votre mot de passe actuel reste inchange.</p>
+  <p style="font-size:12px;color:#aaaaaa;margin:0">— L'equipe LetzTrack</p>
+</td></tr></table></body></html>`;
   const text = `LetzTrack - Code de reinitialisation : ${code} (valable 15 min). Si vous n'etes pas a l'origine de cette demande, ignorez ce mail.`;
   try {
     const r = await fetch('https://api.resend.com/emails', {
