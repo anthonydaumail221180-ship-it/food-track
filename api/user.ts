@@ -77,6 +77,37 @@ const authenticateUser = async (req: any): Promise<any | null> => {
 const normalizeEmail = (e: any) => String(e || '').trim().toLowerCase();
 const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) && e.length < 150;
 
+// Envoi d'email transactionnel via Resend (https://resend.com). Retourne true si envoyé.
+// Nécessite RESEND_API_KEY et optionnellement RESEND_FROM (default: "LetzTrack <onboarding@resend.dev>")
+const sendResetEmail = async (to: string, firstName: string, code: string): Promise<boolean> => {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) { console.log('[resend] RESEND_API_KEY manquant, email non envoyé'); return false; }
+  const from = process.env.RESEND_FROM || 'LetzTrack <onboarding@resend.dev>';
+  const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;background:#f6f5f0;padding:24px;color:#1f1b16">
+<div style="max-width:480px;margin:0 auto;background:#fff;border-radius:20px;padding:28px;box-shadow:0 6px 24px rgba(0,0,0,.06)">
+  <h1 style="margin:0 0 6px;font-size:22px">LëtzTrack 🌯</h1>
+  <p style="margin:0 0 20px;color:#7a6f63;font-size:14px">Réinitialisation du mot de passe</p>
+  <p style="font-size:15px;line-height:1.5">Bonjour ${firstName.replace(/[<>]/g, '')},</p>
+  <p style="font-size:15px;line-height:1.5">Voici votre code de réinitialisation. Il est valable <b>15 minutes</b>.</p>
+  <div style="font-size:34px;font-weight:800;letter-spacing:8px;text-align:center;background:linear-gradient(135deg,#ff7a3d,#ff3d8a);color:#fff;border-radius:14px;padding:18px;margin:18px 0">${code}</div>
+  <p style="font-size:13px;color:#7a6f63;line-height:1.5">Si vous n'êtes pas à l'origine de cette demande, ignorez ce mail — votre mot de passe actuel reste inchangé.</p>
+  <p style="font-size:12px;color:#aaa;margin-top:24px">— L'équipe LëtzTrack</p>
+</div></body></html>`;
+  const text = `LetzTrack - Code de reinitialisation : ${code} (valable 15 min). Si vous n'etes pas a l'origine de cette demande, ignorez ce mail.`;
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject: 'Votre code LetzTrack', html, text }),
+    });
+    if (!r.ok) { console.log('[resend] erreur', r.status, await r.text()); return false; }
+    return true;
+  } catch (e: any) {
+    console.log('[resend] exception', e?.message || e);
+    return false;
+  }
+};
+
 const userToJson = (u: any) => ({
   id: u.id,
   email: u.email,
@@ -188,7 +219,9 @@ export default async function handler(req: any, res: any) {
       await sb(`password_resets?user_id=eq.${u.id}&used=eq.false`, { method: 'PATCH', body: JSON.stringify({ used: true }) });
       await sb('password_resets', { method: 'POST', body: JSON.stringify({ user_id: u.id, code }) });
       console.log(`[FORGOT-PASSWORD] ${u.email} (${u.first_name}) - Code: ${code} - expires in 15 min`);
-      return res.status(200).json({ ok: true, hint: 'Si l\'email existe, un code a été envoyé (consultez vos emails, et si rien dans 1 min, contactez l\'admin).' });
+      // Envoi email via Resend si configuré, sinon fallback console (code visible dans logs Vercel)
+      const emailSent = await sendResetEmail(u.email, u.first_name || 'ami', code);
+      return res.status(200).json({ ok: true, hint: emailSent ? 'Un code vous a été envoyé par email (vérifiez les spams).' : 'Si l\'email existe, un code a été envoyé.' });
     }
 
     // --- POST fav_add / fav_remove / GET fav_list ---
