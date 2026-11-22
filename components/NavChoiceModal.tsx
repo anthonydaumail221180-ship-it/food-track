@@ -76,13 +76,13 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
 
   const providers = getNavProviders();
 
-  // Lance le provider adapté au mode "le plus rapide"
+  // Lance Google Maps avec le mode de transport le plus rapide
   const openBestRoute = () => {
-    if (!preview) return;
-    const providerId = preview.fastest === 'transit' ? 'transit' : 'google';
-    const p = providers.find(x => x.id === providerId) || providers.find(x => x.id === 'google') || providers[0];
-    if (truckId) saveLastDest({ truckId, name: target.name || target.address || 'Food truck', address: target.address || '', lat: target.lat, lng: target.lng, provider: p.id as any });
-    p.action(target);
+    if (!preview || !target) return;
+    const mode = preview.fastest === 'bike' ? 'bicycling' : preview.fastest === 'walk' ? 'walking' : preview.fastest === 'transit' ? 'transit' : 'driving';
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=${mode}`;
+    if (truckId) saveLastDest({ truckId, name: target.name || target.address || 'Food truck', address: target.address || '', lat: target.lat, lng: target.lng, provider: 'google' });
+    window.open(url, '_blank', 'noopener,noreferrer');
     onClose();
   };
 

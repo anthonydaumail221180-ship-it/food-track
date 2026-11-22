@@ -69,15 +69,9 @@ export const getNavProviders = (): NavProvider[] => {
     {
       id: 'google',
       label: 'Google Maps',
-      sublabel: 'Voiture, vélo, à pied',
+      sublabel: 'Voiture, vélo, à pied, bus & train',
       action: openGoogleMaps,
       recommended: !ios,
-    },
-    {
-      id: 'transit',
-      label: 'Bus & Train',
-      sublabel: 'Trajet CFL en temps réel (Google Maps transit)',
-      action: openTransit,
     },
   ];
 };
