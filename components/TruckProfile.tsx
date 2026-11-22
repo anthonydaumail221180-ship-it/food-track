@@ -131,18 +131,19 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
             <button onClick={onBack} className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition">
                 <ArrowLeft size={24} />
             </button>
-            <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                <div className="flex justify-between items-end">
-                    <div>
-                        <span className="bg-brand-gradient text-[10px] font-bold px-2 py-1 rounded-md text-white uppercase tracking-wide mb-2 inline-block shadow-sm">{truck.cuisine}</span>
-                        <h1 className="text-4xl font-display drop-shadow-md">{truck.name}</h1>
-                        <div className="flex items-center gap-2 mt-1 text-sm text-gray-200 font-medium">
-                            <MapPin size={16} className="text-brand-orange" /> {truck.locationName}
+            <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                <div className="flex justify-between items-end gap-3">
+                    <div className="min-w-0 flex-1">
+                        <span className="bg-brand-gradient text-[10px] font-bold px-2 py-1 rounded-md text-white uppercase tracking-wide mb-2 inline-block shadow-sm max-w-full truncate">{truck.cuisine}</span>
+                        <h1 className="text-3xl sm:text-4xl font-display drop-shadow-md break-words leading-tight">{truck.name}</h1>
+                        <div className="flex items-start gap-2 mt-1 text-sm text-gray-200 font-medium min-w-0">
+                            <MapPin size={16} className="text-brand-orange flex-shrink-0 mt-0.5" />
+                            <span className="line-clamp-2 break-words">{truck.locationName}</span>
                         </div>
                     </div>
-                    <button 
+                    <button
                         onClick={() => toggleFavorite(truck.id)}
-                        className="bg-white p-3 rounded-full shadow-lg text-brand-red hover:scale-105 transition"
+                        className="bg-white p-3 rounded-full shadow-lg text-brand-red hover:scale-105 transition flex-shrink-0"
                     >
                         <Heart size={24} fill={isFavorite ? "currentColor" : "none"} />
                     </button>

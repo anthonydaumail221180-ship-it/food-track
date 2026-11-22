@@ -169,17 +169,17 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
             const lastVisit = history.find(h => h.truckId === truck.id);
 
             return (
-                <div key={truck.id} className="bg-white rounded-[28px] p-4 shadow-card border border-brand-border/70 flex gap-4 relative animate-slide-up group hover:-translate-y-0.5 hover:shadow-glow/30 transition-all">
-                    <img 
-                        src={truckImage(truck)} 
-                        alt={truck.name} 
-                        className="w-28 h-28 rounded-3xl object-cover flex-shrink-0 cursor-pointer shadow-card ring-2 ring-white"
+                <div key={truck.id} className="bg-white rounded-[28px] p-4 shadow-card border border-brand-border/70 flex gap-3 relative animate-slide-up group hover:-translate-y-0.5 hover:shadow-glow/30 transition-all overflow-hidden">
+                    <img
+                        src={truckImage(truck)}
+                        alt={truck.name}
+                        className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl object-cover flex-shrink-0 cursor-pointer shadow-card ring-2 ring-white"
                         onClick={() => onTruckClick(truck)}
                     />
-                    <div className="flex-1 flex flex-col justify-between">
-                        <div onClick={() => onTruckClick(truck)} className="cursor-pointer">
-                            <div className="flex justify-between items-start pr-8">
-                                <h3 className="font-bold text-xl text-brand-text leading-tight line-clamp-1">{truck.name}</h3>
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div onClick={() => onTruckClick(truck)} className="cursor-pointer min-w-0">
+                            <div className="flex justify-between items-start pr-10 min-w-0">
+                                <h3 className="font-bold text-lg text-brand-text leading-tight truncate min-w-0 flex-1">{truck.name}</h3>
                             </div>
                             <div className="flex gap-2 items-center mt-1.5 min-w-0 overflow-hidden">
                                 {truck.status ? (
@@ -191,29 +191,29 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                                     {truck.isOpen ? 'Service' : 'Fermé'}
                                 </span>
                                 )}
-                                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide truncate min-w-0 flex-1">{truck.cuisine}</span>
+                                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide truncate min-w-0 flex-1">{truck.cuisine}</span>
                             </div>
-                            <p className="text-xs text-gray-400 line-clamp-2 mt-2 leading-relaxed">{truck.description}</p>
-                            
+                            <p className="text-xs text-gray-400 line-clamp-2 mt-2 leading-relaxed break-words">{truck.description}</p>
+
                             {lastVisit && (
-                                <p className="text-[10px] text-brand-pink font-bold mt-2 flex items-center gap-1">
-                                    <Clock size={10} /> Visité le {new Date(lastVisit.date).toLocaleDateString()}
+                                <p className="text-[10px] text-brand-pink font-bold mt-2 flex items-center gap-1 truncate">
+                                    <Clock size={10} className="flex-shrink-0" /> <span className="truncate">Visité le {new Date(lastVisit.date).toLocaleDateString()}</span>
                                 </p>
                             )}
                         </div>
-                        
-                        <div className="flex items-center justify-between mt-4">
-                            <div className="flex items-center text-xs text-gray-500">
-                                <MapPin size={14} className="mr-1 text-brand-pink" />
-                                <span className="truncate max-w-[80px]">{truck.locationName}</span>
-                                {distance && <span className="ml-1 font-bold text-brand-orange">({distance}km)</span>}
+
+                        <div className="flex items-center justify-between mt-3 gap-2 min-w-0">
+                            <div className="flex items-center text-xs text-gray-500 min-w-0 flex-1">
+                                <MapPin size={14} className="mr-1 text-brand-pink flex-shrink-0" />
+                                <span className="truncate min-w-0">{truck.locationName}</span>
+                                {distance && <span className="ml-1 font-bold text-brand-orange flex-shrink-0">({distance}km)</span>}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                                 {truck.rating > 0 && (<div className="flex items-center text-yellow-400 bg-yellow-50 px-1.5 py-0.5 rounded-md">
                                     <Star size={12} fill="currentColor" />
                                     <span className="text-xs font-bold ml-0.5 text-yellow-700">{truck.rating}</span>
                                 </div>)}
-                                <button 
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onNavigate(truck);
