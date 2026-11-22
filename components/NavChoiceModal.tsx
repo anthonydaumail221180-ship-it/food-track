@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Navigation2, Map as MapIcon, Bus, X, ExternalLink, Car, Bike, Footprints, Zap, Loader2, Train } from 'lucide-react';
-import { getNavProviders, NavTarget, openMobiliteit } from '../services/mapsNavigation';
+import { getNavProviders, NavTarget } from '../services/mapsNavigation';
 import { previewRoute, RoutePreview, NavMode, formatDuration, formatDistance } from '../services/routePreview';
 import { saveLastDest } from '../services/lastDestination';
 import { getUserPosition } from '../services/location';
@@ -86,11 +86,6 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
     onClose();
   };
 
-  // Lien secondaire : horaires CFL officiels via mobiliteit.lu (copie l'adresse au clipboard)
-  const openMobiliteitSite = () => {
-    openMobiliteit(target);
-    onClose();
-  };
 
   const onProviderClick = (p: typeof providers[number]) => {
     if (truckId) saveLastDest({ truckId, name: target.name || target.address || 'Food truck', address: target.address || '', lat: target.lat, lng: target.lng, provider: p.id });
@@ -183,16 +178,6 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
             </button>
           ))}
         </div>
-
-        {/* Lien secondaire pour les horaires CFL officiels */}
-        <button
-          onClick={openMobiliteitSite}
-          className="w-full mt-2 py-2.5 rounded-xl bg-white border border-brand-border text-xs font-bold text-brand-muted hover:border-amber-200 hover:text-amber-800 transition flex items-center justify-center gap-2"
-          title="Ouvre mobiliteit.lu avec l'adresse copiée dans le presse-papiers"
-        >
-          <Bus size={14} /> Horaires officiels CFL (mobiliteit.lu)
-          <ExternalLink size={12} className="opacity-60" />
-        </button>
 
         {/* Option secondaire : vue interne (map + conseil IA) */}
         {onOpenInternalMap && (

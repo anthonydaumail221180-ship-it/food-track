@@ -181,17 +181,17 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                             <div className="flex justify-between items-start pr-8">
                                 <h3 className="font-bold text-xl text-brand-text leading-tight line-clamp-1">{truck.name}</h3>
                             </div>
-                            <div className="flex gap-2 items-center mt-1.5">
+                            <div className="flex gap-2 items-center mt-1.5 min-w-0 overflow-hidden">
                                 {truck.status ? (
-                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-50 text-amber-700">
-                                        {truck.status === 'pending' ? 'En attente de validation' : 'Non retenu'}
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-50 text-amber-700 flex-shrink-0">
+                                        {truck.status === 'pending' ? 'En attente' : 'Non retenu'}
                                     </span>
                                 ) : (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${truck.isOpen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ${truck.isOpen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                                     {truck.isOpen ? 'Service' : 'Fermé'}
                                 </span>
                                 )}
-                                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide truncate">{truck.cuisine}</span>
+                                <span className="text-xs text-gray-500 font-semibold uppercase tracking-wide truncate min-w-0 flex-1">{truck.cuisine}</span>
                             </div>
                             <p className="text-xs text-gray-400 line-clamp-2 mt-2 leading-relaxed">{truck.description}</p>
                             

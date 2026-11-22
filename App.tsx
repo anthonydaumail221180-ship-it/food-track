@@ -372,10 +372,34 @@ const App: React.FC = () => {
   };
 
   // --- Filtering Logic for Landing Screen ---
-  // On garde la liste complète que loadData a construite : LIVE en tête puis signalements puis BDD offline puis statiques.
-  const handleShowAll = () => {
+  // Clic "Grub" sur la landing : on tente d'obtenir la géoloc pour trier par distance
+  // (comportement par défaut demandé). Si refusée, on ouvre quand même la liste en ordre pour-moi.
+  const handleShowAll = async () => {
       setCurrentView(AppView.HOME);
-      // On ne touche pas à displayedTrucks : elle contient déjà tout dans le bon ordre depuis loadData.
+      // Si on a déjà la position, trie direct
+      if (userLocation) {
+          const rest = displayedTrucks.filter(t => !liveTrucks.includes(t)).sort((a, b) => {
+              const distA = a.coordinates ? getDistance(userLocation.lat, userLocation.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
+              const distB = b.coordinates ? getDistance(userLocation.lat, userLocation.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
+              return distA - distB;
+          });
+          setDisplayedTrucks([...liveTrucks, ...rest]);
+          return;
+      }
+      // Sinon, demande silencieuse de géoloc en tâche de fond pour trier au retour
+      try {
+          const r = await getUserPosition();
+          if (r.ok) {
+              const loc = { lat: r.lat, lng: r.lng };
+              setUserLocation(loc);
+              const rest = displayedTrucks.filter(t => !liveTrucks.includes(t)).sort((a, b) => {
+                  const distA = a.coordinates ? getDistance(loc.lat, loc.lng, a.coordinates.lat, a.coordinates.lng) : 99999;
+                  const distB = b.coordinates ? getDistance(loc.lat, loc.lng, b.coordinates.lat, b.coordinates.lng) : 99999;
+                  return distA - distB;
+              });
+              setDisplayedTrucks([...liveTrucks, ...rest]);
+          }
+      } catch { /* ignore, l'utilisateur peut filtrer "Distance" à la main */ }
   };
 
   const executeProximitySearch = (location: {lat: number, lng: number}) => {
@@ -491,48 +515,62 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="w-full max-w-sm space-y-3 mb-8 z-10 stagger">
-                    <button 
+                    {/* GRUB : bouton principal mis en avant, tri par distance par défaut */}
+                    <button
                         onClick={handleShowAll}
-                        className="w-full bg-brand-gradient text-white rounded-3xl p-4 shadow-glow flex items-center gap-4 transition-transform active:scale-95 hover:scale-[1.01]"
+                        className="w-full bg-brand-gradient text-white rounded-3xl p-5 shadow-glow flex items-center gap-4 transition-transform active:scale-95 hover:scale-[1.01]"
                     >
-                        <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                            <Utensils size={22} />
+                        <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <Utensils size={28} />
                         </div>
-                        <div className="text-left flex-1">
-                            <h3 className="font-bold text-lg leading-tight">Où déjeuner ce midi ?</h3>
-                            <p className="text-xs text-white/85">Voir tous les food trucks</p>
+                        <div className="text-left flex-1 min-w-0">
+                            <h3 className="font-bold text-xl leading-tight">Grub</h3>
+                            <p className="text-xs text-white/85 leading-tight mt-0.5">Tous les food trucks du jour, triés par distance</p>
                         </div>
-                        <ArrowRight size={20} className="opacity-80" />
+                        <ArrowRight size={22} className="opacity-80 flex-shrink-0" />
                     </button>
 
-                    <button 
-                        onClick={() => setShowLocationModal(true)}
-                        className="w-full bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex items-center gap-4 transition-transform active:scale-95 hover:border-brand-orange"
-                    >
-                        <div className="w-12 h-12 rounded-2xl bg-brand-text flex items-center justify-center text-white">
-                            <MapPin size={22} />
-                        </div>
-                        <div className="text-left flex-1">
-                            <h3 className="font-bold text-lg text-brand-text leading-tight">Autour de moi</h3>
-                            <p className="text-xs text-brand-muted">Les 5 camions les plus proches</p>
-                        </div>
-                        <ArrowRight size={20} className="text-brand-muted" />
-                    </button>
-
+                    {/* Les 4 autres fonctionnalités en grille 2×2 */}
                     <div className="grid grid-cols-2 gap-3">
-                        <button
-                            onClick={() => setCurrentView(AppView.REPORT)}
-                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-orange"
-                        >
-                            <div className="w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center"><Truck size={20} className="text-brand-orange" /></div>
-                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Spot</h3>
-                        </button>
                         <button
                             onClick={() => setCurrentView(AppView.FEED)}
                             className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-pink"
                         >
-                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center"><Flame size={20} className="text-brand-pink" /></div>
-                            <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Feed</h3>
+                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center flex-shrink-0"><Flame size={20} className="text-brand-pink" /></div>
+                            <div className="min-w-0 w-full">
+                                <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Feed</h3>
+                                <p className="text-[10px] text-brand-muted text-left leading-tight mt-0.5 line-clamp-2">Actu + vos Tips</p>
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setCurrentView(AppView.TASTE_HISTORY)}
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-pink"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-brand-pink/10 flex items-center justify-center flex-shrink-0"><Heart size={20} className="text-brand-pink" /></div>
+                            <div className="min-w-0 w-full">
+                                <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Taste</h3>
+                                <p className="text-[10px] text-brand-muted text-left leading-tight mt-0.5 line-clamp-2">Votre histoire gustative</p>
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setCurrentView(AppView.QUIZ)}
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-amber-300"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0"><Coins size={20} className="text-amber-600" /></div>
+                            <div className="min-w-0 w-full">
+                                <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Tips</h3>
+                                <p className="text-[10px] text-brand-muted text-left leading-tight mt-0.5 line-clamp-2">Quiz du jour</p>
+                            </div>
+                        </button>
+                        <button
+                            onClick={() => setCurrentView(AppView.REPORT)}
+                            className="bg-white/90 backdrop-blur border border-brand-border rounded-3xl p-4 shadow-card flex flex-col items-start gap-3 transition-transform active:scale-95 hover:border-brand-orange"
+                        >
+                            <div className="w-10 h-10 rounded-xl bg-brand-orange/10 flex items-center justify-center flex-shrink-0"><Truck size={20} className="text-brand-orange" /></div>
+                            <div className="min-w-0 w-full">
+                                <h3 className="font-bold text-sm text-brand-text text-left leading-tight">Spot</h3>
+                                <p className="text-[10px] text-brand-muted text-left leading-tight mt-0.5 line-clamp-2">Signaler un truck</p>
+                            </div>
                         </button>
                     </div>
                 </div>
