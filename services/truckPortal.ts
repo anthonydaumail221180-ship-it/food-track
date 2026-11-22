@@ -36,6 +36,15 @@ export interface LiveTruck extends TruckProfile {
   default_lat?: number | null;
   default_lng?: number | null;
   default_address?: string | null;
+  // Detection IA auto (cron toutes les 4h)
+  today_lat?: number | null;
+  today_lng?: number | null;
+  today_address?: string | null;
+  today_source?: string | null;
+  today_detected_at?: string | null;
+  today_confidence?: number | null;
+  today_raw_note?: string | null;
+  today_is_live?: boolean | null;
   live_location: (Omit<TruckLocation, 'id' | 'truck_id' | 'status' | 'created_at'> & { last_pinged_at?: string }) | null;
 }
 

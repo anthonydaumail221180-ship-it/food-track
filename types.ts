@@ -31,6 +31,12 @@ export interface FoodTruck {
   openingHours?: string;
   weeklySchedule?: string;
   knownLocations?: string;
+  // Detection IA auto (cron toutes les 4h) : true si un post IG/FB du jour a ete trouve
+  aiDetected?: boolean;
+  aiConfidence?: number; // 0-100
+  aiDetectedAt?: string; // ISO
+  aiSourceUrl?: string;
+  aiNote?: string;
 }
 
 export interface SocialPost {

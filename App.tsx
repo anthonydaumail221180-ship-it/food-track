@@ -266,19 +266,26 @@ const App: React.FC = () => {
               knownLocations: t.known_locations,
           };
       }
-      // Pas en LIVE : on utilise les coordonnées par défaut (géocodage approximatif de la zone principale)
-      // pour que le bouton "Y aller" fonctionne quand même.
+      // Pas en LIVE physique, mais detection IA : si le cron a trouve un emplacement du jour
+      // frais (moins de 24h) avec une confiance correcte (>=50), on considere le truck "AI-LIVE".
+      const detectedAt = t.today_detected_at ? new Date(t.today_detected_at).getTime() : 0;
+      const detectionAgeH = detectedAt ? (Date.now() - detectedAt) / 3600000 : 999;
+      const aiLive = !!t.today_is_live && detectionAgeH < 24 && (t.today_confidence || 0) >= 50;
+      const hasTodayCoords = aiLive && typeof t.today_lat === 'number' && typeof t.today_lng === 'number';
       const hasDefaultCoords = typeof t.default_lat === 'number' && typeof t.default_lng === 'number';
+      const coords = hasTodayCoords
+        ? { lat: t.today_lat as number, lng: t.today_lng as number }
+        : (hasDefaultCoords ? { lat: t.default_lat as number, lng: t.default_lng as number } : undefined);
       return {
           id: `db-${t.id}`,
           name: t.name,
           cuisine: t.cuisine || 'Cuisine',
           description: t.description || '',
-          locationName: t.default_address || t.known_locations || 'Emplacements variables',
-          coordinates: hasDefaultCoords ? { lat: t.default_lat as number, lng: t.default_lng as number } : undefined,
+          locationName: aiLive ? (t.today_address || 'Emplacement du jour') : (t.default_address || t.known_locations || 'Emplacements variables'),
+          coordinates: coords,
           rating: 0,
           imageUrl: t.photo_url || undefined,
-          isOpen: false,
+          isOpen: aiLive, // AI-detected = considere ouvert
           hours: t.opening_hours || 'Horaires sur le profil',
           phone: t.phone || undefined,
           website: t.website || undefined,
@@ -287,6 +294,11 @@ const App: React.FC = () => {
           openingHours: t.opening_hours,
           weeklySchedule: t.schedule,
           knownLocations: t.known_locations,
+          aiDetected: aiLive,
+          aiConfidence: t.today_confidence ?? undefined,
+          aiDetectedAt: t.today_detected_at ?? undefined,
+          aiSourceUrl: t.today_source ?? undefined,
+          aiNote: t.today_raw_note ?? undefined,
       };
   };
 

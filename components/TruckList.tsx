@@ -186,10 +186,14 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider bg-amber-50 text-amber-700 flex-shrink-0">
                                         {truck.status === 'pending' ? 'En attente' : 'Non retenu'}
                                     </span>
+                                ) : truck.aiDetected ? (
+                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 bg-gradient-to-r from-brand-orange to-brand-pink text-white flex items-center gap-1" title={truck.aiNote || 'Détecté automatiquement par IA via Instagram/Facebook'}>
+                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>LIVE · IA
+                                    </span>
                                 ) : (
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ${truck.isOpen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
-                                    {truck.isOpen ? 'Service' : 'Fermé'}
-                                </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex-shrink-0 ${truck.isOpen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                        {truck.isOpen ? 'Service' : 'Fermé'}
+                                    </span>
                                 )}
                                 <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide truncate min-w-0 flex-1">{truck.cuisine}</span>
                             </div>
