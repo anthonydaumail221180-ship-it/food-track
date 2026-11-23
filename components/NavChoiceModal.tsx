@@ -9,9 +9,7 @@ interface NavChoiceModalProps {
   target: NavTarget | null;
   // Position de départ connue (depuis App.tsx userLocation si déjà dispo)
   from?: { lat: number; lng: number } | null;
-  // Optionnel : si fourni, un 4e bouton "Voir sur la carte" ouvre l'ancienne vue interne (NavigationHelper)
   onClose: () => void;
-  onOpenInternalMap?: () => void;
   // Pour mémoriser la destination
   truckId?: string;
 }
@@ -32,7 +30,7 @@ const providerAccent: Record<string, string> = {
   mobiliteit: 'bg-amber-50 text-amber-800 border-amber-100',
 };
 
-export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, onClose, onOpenInternalMap, truckId }) => {
+export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, onClose, truckId }) => {
   const [preview, setPreview] = useState<RoutePreview | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewErr, setPreviewErr] = useState<string | null>(null);
@@ -178,22 +176,6 @@ export const NavChoiceModal: React.FC<NavChoiceModalProps> = ({ target, from, on
             </button>
           ))}
         </div>
-
-        {/* Option secondaire : vue interne (map + conseil IA) */}
-        {onOpenInternalMap && (
-          <>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-brand-border"></div></div>
-              <div className="relative flex justify-center text-[10px]"><span className="px-2 bg-white text-brand-muted uppercase tracking-wider">ou</span></div>
-            </div>
-            <button
-              onClick={() => { onOpenInternalMap(); onClose(); }}
-              className="w-full py-3 rounded-xl bg-brand-bg border border-brand-border text-sm font-bold text-brand-text hover:border-brand-orange transition flex items-center justify-center gap-2"
-            >
-              <MapIcon size={16} /> Voir sur la carte interne (conseil IA)
-            </button>
-          </>
-        )}
 
         <p className="text-[11px] text-brand-muted text-center mt-4 leading-relaxed">
           Les apps externes s'ouvrent avec votre position actuelle comme point de départ.

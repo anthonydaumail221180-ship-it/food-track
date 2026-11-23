@@ -4,7 +4,6 @@ import { Header } from './components/Header';
 import { TruckList } from './components/TruckList';
 import { SocialWall } from './components/SocialWall';
 import { VotingBooth } from './components/VotingBooth';
-import { NavigationHelper } from './components/NavigationHelper';
 import { TruckProfile } from './components/TruckProfile';
 import { NotificationCenter } from './components/NotificationCenter';
 import { QuizGame } from './components/QuizGame';
@@ -456,14 +455,12 @@ const App: React.FC = () => {
   };
 
   // --- Navigation Handlers ---
-  // "Y aller" : ouvre un bottom sheet qui laisse l'utilisateur choisir son appli (Plan / Google / mobiliteit.lu)
-  // ou basculer sur la vue interne (carte + conseil IA) via NavigationHelper.
+  // "Y aller" : ouvre un bottom sheet qui laisse l'utilisateur choisir son appli (Plan / Google Maps).
   const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
   const handleNavigateToTruck = (truck: FoodTruck) => {
     if (!truck.coordinates) {
-      // Pas de coordonnées : fallback sur la vue interne qui gère l'absence
-      setSelectedTruck(truck);
-      setCurrentView(AppView.MAP_TRANSPORT);
+      setToast('Emplacement inconnu pour ce truck.');
+      setTimeout(() => setToast(null), 2500);
       return;
     }
     setSelectedTruck(truck);
@@ -624,8 +621,6 @@ const App: React.FC = () => {
             showToast(`Vous avez marqué ${s} points !`);
             setCurrentView(AppView.FEED);
         }} />;
-      case AppView.MAP_TRANSPORT:
-        return <NavigationHelper targetTruck={selectedTruck} onBack={() => setCurrentView(AppView.HOME)} />;
       case AppView.PROFILE:
         return selectedTruck ? (
             <TruckProfile
@@ -655,7 +650,7 @@ const App: React.FC = () => {
     }
   };
 
-  const isFullScreen = [AppView.MAP_TRANSPORT, AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING, AppView.REPORT].includes(currentView);
+  const isFullScreen = [AppView.PROFILE, AppView.NOTIFICATIONS, AppView.ONBOARDING, AppView.USER_PROFILE, AppView.ADMIN_DASHBOARD, AppView.LANDING, AppView.REPORT].includes(currentView);
 
   if (route.route === 'admin') return <ModerationPanel />;
   if (route.route === 'truck' && route.token) return <TruckPortal token={route.token} />;
@@ -710,13 +705,12 @@ const App: React.FC = () => {
       {/* Tour guidé : automatique après inscription + rappelable via le "?" */}
       {showTour && <AppTour onClose={() => setShowTour(false)} />}
 
-      {/* Modal "Y aller" : choix d'appli de nav externe (Plan / Google Maps / mobiliteit.lu) */}
+      {/* Modal "Y aller" : choix d'appli de nav externe (Plan / Google Maps) */}
       <NavChoiceModal
           target={navTarget}
           from={userLocation}
           truckId={selectedTruck?.id}
           onClose={() => setNavTarget(null)}
-          onOpenInternalMap={() => { setNavTarget(null); setCurrentView(AppView.MAP_TRANSPORT); }}
       />
 
       {/* Toast (remplace alert() bloquant) */}

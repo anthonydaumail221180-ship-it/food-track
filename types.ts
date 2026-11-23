@@ -137,7 +137,6 @@ export enum AppView {
   LANDING = 'LANDING',
   HOME = 'HOME',
   RADAR = 'RADAR', // New View
-  MAP_TRANSPORT = 'MAP_TRANSPORT',
   SOCIAL = 'SOCIAL',
   VOTE = 'VOTE',
   PROFILE = 'PROFILE', // Public truck profile
