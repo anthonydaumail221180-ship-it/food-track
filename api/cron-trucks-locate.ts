@@ -77,6 +77,60 @@ Regles :
   }
 };
 
+// --- Mode feed-radar : scrute les posts recents des influenceurs food LU et les capture dans influencer_posts.
+// Pour chaque influenceur actif, Gemini + Google Search va chercher ses derniers posts (Insta/TikTok/FB),
+// extrait : contenu court, truck mentionne (match avec notre table trucks), lieu, hashtags, sentiment.
+// Insere en BDD (unique sur post_url) pour alimenter le Feed.
+const scanInfluencer = async (ai: GoogleGenAI, influ: any, truckNames: string[]): Promise<any[]> => {
+  const prompt = `Tu es un agent qui surveille un influenceur food au Luxembourg et extrait ses derniers posts.
+
+Influenceur : ${influ.display_name} (@${influ.handle} sur ${influ.platform})
+URL profil : ${influ.profile_url}
+Specialite : ${influ.specialty || 'cuisine generale'}
+
+Food trucks suivis par LetzTrack (pour matching) :
+${truckNames.slice(0, 50).join(', ')}
+
+TACHE : cherche sur Google les 1 a 3 posts les plus recents de cet influenceur (moins d'une semaine idealement). Pour chaque post trouve, extrais ces informations.
+
+REPONDS UNIQUEMENT EN JSON (tableau), sans markdown, sans texte autour :
+[
+  {
+    "post_url": "URL exacte du post",
+    "content": "resume du contenu du post (max 280 chars, en francais)",
+    "truck_mentioned": "nom exact d'un truck de la liste si mentionne, sinon null",
+    "location_text": "lieu mentionne si present, sinon null",
+    "hashtags": ["tag1", "tag2"] ou [],
+    "sentiment": "positif" | "neutre" | "negatif",
+    "published_at": "date ISO approximative ou null si inconnu",
+    "thumbnail_url": "URL image si visible, sinon null"
+  }
+]
+
+Regles :
+- Max 3 posts (les plus recents)
+- Si tu ne trouves rien de recent, renvoie []
+- truck_mentioned : nom EXACT de la liste ci-dessus, pas d'approximation
+- Reste factuel`;
+
+  try {
+    const r = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { tools: [{ googleSearch: {} }], temperature: 0.2 },
+    });
+    const text = r.text || '';
+    const m = text.match(/\[[\s\S]*\]/);
+    if (!m) return [];
+    const arr = JSON.parse(m[0]);
+    if (!Array.isArray(arr)) return [];
+    return arr;
+  } catch (e: any) {
+    console.error(`[scan-influencer] ${influ.handle} failed:`, e?.message);
+    return [];
+  }
+};
+
 const todayFrLong = () => {
   const d = new Date();
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -176,6 +230,53 @@ export default async function handler(req: any, res: any) {
   const concurrency = 5;
   // Mode d'operation : "locate" (defaut) ou "enrich-socials" (trouve IG/FB des trucks qui n'en ont pas)
   const mode = String((req.query && req.query.mode) || 'locate').trim();
+
+  if (mode === 'feed-radar') {
+    // Scrute les influenceurs food LU et insere leurs posts dans influencer_posts.
+    if (!CRON_SECRET || token !== CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
+    const aiF = new GoogleGenAI({ apiKey: GEMINI_KEY });
+    // Priorise les plus anciens scans
+    const influs = await sb(`food_influencers?active=eq.true&order=last_scanned_at.asc.nullsfirst&limit=${batchLimit}&select=id,display_name,handle,platform,profile_url,specialty`);
+    const allTrucks = await sb(`trucks?select=id,name&order=name.asc`);
+    const truckByName: Record<string, string> = {};
+    for (const t of allTrucks) truckByName[t.name.toLowerCase()] = t.id;
+    const truckNames = allTrucks.map((t: any) => t.name);
+    let scanned = 0, captured = 0, matched = 0;
+    const results: any[] = [];
+    for (let i = 0; i < influs.length; i += concurrency) {
+      const slice = influs.slice(i, i + concurrency);
+      await Promise.all(slice.map(async (infl: any) => {
+        const posts = await scanInfluencer(aiF, infl, truckNames);
+        scanned++;
+        await sb(`food_influencers?id=eq.${infl.id}`, { method: 'PATCH', body: JSON.stringify({ last_scanned_at: new Date().toISOString() }) });
+        for (const p of posts) {
+          if (!p || !p.post_url) continue;
+          const truckId = p.truck_mentioned ? (truckByName[String(p.truck_mentioned).toLowerCase()] || null) : null;
+          if (truckId) matched++;
+          const row: any = {
+            influencer_id: infl.id,
+            platform: infl.platform,
+            post_url: String(p.post_url).slice(0, 500),
+            content: p.content ? String(p.content).slice(0, 400) : null,
+            summary: p.content ? String(p.content).slice(0, 200) : null,
+            thumbnail_url: p.thumbnail_url || null,
+            truck_mentioned_id: truckId,
+            truck_mentioned_name: p.truck_mentioned || null,
+            location_text: p.location_text || null,
+            hashtags: Array.isArray(p.hashtags) ? p.hashtags.slice(0, 10) : null,
+            sentiment: p.sentiment || null,
+            published_at: p.published_at || null,
+          };
+          try {
+            await sb('influencer_posts', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(row) });
+            captured++;
+            results.push({ influencer: infl.display_name, truck: p.truck_mentioned, url: row.post_url });
+          } catch (e: any) { /* dup ignore */ }
+        }
+      }));
+    }
+    return res.status(200).json({ ok: true, mode: 'feed-radar', scanned, captured, matched, results: results.slice(0, 30) });
+  }
 
   if (mode === 'enrich-socials') {
     // Auth requise meme pour le cron (pas de header x-vercel-cron ici, c'est manuel)
@@ -334,6 +435,47 @@ export default async function handler(req: any, res: any) {
   }
 
   console.log(`[cron-locate] done: ${detected} detected, ${failed} failed, ${trucks.length} total`);
+
+  // Si declenche par le cron Vercel (pas un trigger manuel single-truck), on enchaine
+  // un mini feed-radar sur 3 influenceurs pour que le Feed reste frais sans 2eme cron.
+  let feedRadar: any = null;
+  if (isCron && !singleTruckId) {
+    try {
+      const influs = await sb(`food_influencers?active=eq.true&order=last_scanned_at.asc.nullsfirst&limit=3&select=id,display_name,handle,platform,profile_url,specialty`);
+      const allTrucksMini = await sb(`trucks?select=id,name`);
+      const truckByNameMini: Record<string, string> = {};
+      for (const t of allTrucksMini) truckByNameMini[t.name.toLowerCase()] = t.id;
+      const truckNamesMini = allTrucksMini.map((t: any) => t.name);
+      let captured = 0;
+      for (const infl of influs) {
+        const posts = await scanInfluencer(ai, infl, truckNamesMini);
+        await sb(`food_influencers?id=eq.${infl.id}`, { method: 'PATCH', body: JSON.stringify({ last_scanned_at: new Date().toISOString() }) });
+        for (const p of posts) {
+          if (!p || !p.post_url) continue;
+          const tId = p.truck_mentioned ? (truckByNameMini[String(p.truck_mentioned).toLowerCase()] || null) : null;
+          try {
+            await sb('influencer_posts', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify({
+              influencer_id: infl.id,
+              platform: infl.platform,
+              post_url: String(p.post_url).slice(0, 500),
+              content: p.content ? String(p.content).slice(0, 400) : null,
+              summary: p.content ? String(p.content).slice(0, 200) : null,
+              thumbnail_url: p.thumbnail_url || null,
+              truck_mentioned_id: tId,
+              truck_mentioned_name: p.truck_mentioned || null,
+              location_text: p.location_text || null,
+              hashtags: Array.isArray(p.hashtags) ? p.hashtags.slice(0, 10) : null,
+              sentiment: p.sentiment || null,
+              published_at: p.published_at || null,
+            })});
+            captured++;
+          } catch {}
+        }
+      }
+      feedRadar = { scanned: influs.length, captured };
+    } catch (e: any) { console.error('[cron-locate] feed-radar pass failed:', e?.message); }
+  }
+
   return res.status(200).json({
     ok: true,
     run_id: runRow?.id || null,
@@ -342,6 +484,7 @@ export default async function handler(req: any, res: any) {
     total: trucks.length,
     detected,
     failed,
+    feed_radar: feedRadar,
     results: singleTruckId ? results : results.slice(0, 20),
   });
 }

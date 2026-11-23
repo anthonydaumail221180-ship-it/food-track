@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fetchFeed, FeedPost } from '../services/reportsService';
-import { Coins, Play, RotateCcw, Trophy } from 'lucide-react';
+import { Coins, Play, RotateCcw, Trophy, Instagram, ExternalLink, MapPin, CheckCircle2, Sparkles } from 'lucide-react';
 
 interface NewsFeedProps {
   onPlayQuiz: () => void;
@@ -71,6 +71,76 @@ const TipsWidget: React.FC<{ onPlayQuiz: () => void }> = ({ onPlayQuiz }) => {
   );
 };
 
+const platformIcon = (p?: string) => {
+  if (p === 'instagram') return <Instagram size={14} />;
+  if (p === 'tiktok') return <span className="font-bold text-[10px]">TT</span>;
+  return <Sparkles size={14} />;
+};
+
+const platformColor = (p?: string) => {
+  if (p === 'instagram') return 'bg-gradient-to-br from-pink-500 via-red-500 to-yellow-500 text-white';
+  if (p === 'tiktok') return 'bg-black text-white';
+  if (p === 'facebook') return 'bg-blue-600 text-white';
+  return 'bg-brand-gradient text-white';
+};
+
+const renderInfluencerCard = (p: FeedPost) => (
+  <article key={p.id} className="bg-white rounded-3xl border border-brand-border shadow-sm p-4 overflow-hidden">
+    <div className="flex items-center gap-3 mb-3">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${platformColor(p.platform)}`}>
+        {platformIcon(p.platform)}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-brand-text flex items-center gap-1 truncate">
+          {p.title}
+          {p.verified && <CheckCircle2 size={14} className="text-brand-blue flex-shrink-0" />}
+        </p>
+        <p className="text-[11px] text-brand-muted">{ago(p.ts)}{p.platform ? ` · ${p.platform}` : ''}</p>
+      </div>
+      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full bg-brand-pink/10 text-brand-pink flex-shrink-0">Influenceur</span>
+    </div>
+    {p.body && <p className="text-sm text-brand-text leading-relaxed mb-2 break-words">{p.body}</p>}
+    {p.truckName && (
+      <div className="flex items-center gap-1.5 text-xs text-brand-orange font-bold mb-2">
+        <MapPin size={12} />
+        <span className="truncate">Mentionne : {p.truckName}</span>
+      </div>
+    )}
+    {p.hashtags && p.hashtags.length > 0 && (
+      <div className="flex flex-wrap gap-1 mb-2">
+        {p.hashtags.slice(0, 6).map((h, i) => (
+          <span key={i} className="text-[10px] text-brand-blue">#{h}</span>
+        ))}
+      </div>
+    )}
+    {p.postUrl && (
+      <a
+        href={p.postUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs font-bold text-brand-muted hover:text-brand-text mt-1"
+      >
+        Voir le post <ExternalLink size={12} />
+      </a>
+    )}
+  </article>
+);
+
+const renderStandardCard = (p: FeedPost) => (
+  <article key={p.id} className="bg-white rounded-3xl border border-brand-border shadow-sm p-4">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="w-10 h-10 rounded-full bg-brand-gradient flex items-center justify-center text-white font-display text-lg">L</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-brand-text">LëtzTrack</p>
+        <p className="text-[11px] text-brand-muted">{ago(p.ts)}</p>
+      </div>
+      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${p.kind === 'truck' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-brand-orange'}`}>{p.kind === 'truck' ? 'Nouveau camion' : 'Actu'}</span>
+    </div>
+    <h2 className="font-bold text-brand-text leading-snug">{p.title}</h2>
+    {p.body && <p className="text-sm text-brand-muted mt-1 leading-relaxed">{p.body}</p>}
+  </article>
+);
+
 export const NewsFeed: React.FC<NewsFeedProps> = ({ onPlayQuiz }) => {
   const [posts, setPosts] = useState<FeedPost[] | null>(null);
   useEffect(() => { fetchFeed().then(setPosts); }, []);
@@ -88,20 +158,7 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ onPlayQuiz }) => {
       {posts && posts.length === 0 && <p className="text-center text-brand-muted text-sm py-10">Pas encore de publication. Revenez vite !</p>}
 
       <div className="space-y-4">
-        {posts?.map(p => (
-          <article key={p.id} className="bg-white rounded-3xl border border-brand-border shadow-sm p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-brand-gradient flex items-center justify-center text-white font-display text-lg">L</div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-brand-text">LëtzTrack</p>
-                <p className="text-[11px] text-brand-muted">{ago(p.ts)}</p>
-              </div>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full ${p.kind === 'truck' ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-brand-orange'}`}>{p.kind === 'truck' ? 'Nouveau camion' : 'Actu'}</span>
-            </div>
-            <h2 className="font-bold text-brand-text leading-snug">{p.title}</h2>
-            {p.body && <p className="text-sm text-brand-muted mt-1 leading-relaxed">{p.body}</p>}
-          </article>
-        ))}
+        {posts?.map(p => p.kind === 'influencer' ? renderInfluencerCard(p) : renderStandardCard(p))}
       </div>
     </div>
   );

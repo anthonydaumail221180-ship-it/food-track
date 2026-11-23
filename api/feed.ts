@@ -35,7 +35,37 @@ export default async function handler(req: any, res: any) {
     return res.status(503).json({ error: 'not_configured' });
   }
   try {
-    if (req.method === 'GET') return res.status(200).json(await sb('posts?order=ts.desc&limit=50&select=id,kind,title,body,ts'));
+    if (req.method === 'GET') {
+      const includeInflu = String((req.query && req.query.include_influencers) || '1') === '1';
+      const posts = await sb('posts?order=ts.desc&limit=30&select=id,kind,title,body,ts');
+      if (!includeInflu) return res.status(200).json(posts);
+      // Enrichit avec les posts recents d'influenceurs captures par le feed-radar
+      let influPosts: any[] = [];
+      try {
+        influPosts = await sb('influencer_posts?order=published_at.desc.nullslast&limit=30&select=id,platform,post_url,content,summary,thumbnail_url,truck_mentioned_name,truck_mentioned_id,location_text,hashtags,sentiment,published_at,captured_at,influencer:food_influencers(display_name,handle,profile_url,verified)');
+      } catch (e: any) { console.warn('[feed] influencer_posts fetch failed:', e?.message); }
+      const influMapped = influPosts.map((p: any) => ({
+        id: `infl-${p.id}`,
+        kind: 'influencer',
+        title: p.influencer?.display_name ? `${p.influencer.display_name} (@${p.influencer.handle})` : 'Influenceur food LU',
+        body: p.content || p.summary || '',
+        ts: p.published_at || p.captured_at,
+        platform: p.platform,
+        postUrl: p.post_url,
+        thumbnailUrl: p.thumbnail_url,
+        truckName: p.truck_mentioned_name,
+        truckId: p.truck_mentioned_id,
+        locationText: p.location_text,
+        hashtags: p.hashtags,
+        sentiment: p.sentiment,
+        verified: p.influencer?.verified || false,
+        handle: p.influencer?.handle,
+      }));
+      // Merge trie par ts desc
+      const all = [...posts.map((p: any) => ({ ...p, kind: p.kind || 'news' })), ...influMapped];
+      all.sort((a: any, b: any) => new Date(b.ts || 0).getTime() - new Date(a.ts || 0).getTime());
+      return res.status(200).json(all.slice(0, 50));
+    }
     if (req.method === 'POST') {
       if (!isAdmin(req)) return res.status(401).json({ error: 'unauthorized' });
       const title = String((req.body || {}).title || '').trim().slice(0, 120);

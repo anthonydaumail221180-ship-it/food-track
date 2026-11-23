@@ -78,7 +78,24 @@ export const fetchCommunityTrucks = async (): Promise<FoodTruck[]> => {
 };
 
 // ---- Fil d'actu ----
-export interface FeedPost { id: string; kind: 'truck' | 'news'; title: string; body: string; ts: string }
+export interface FeedPost {
+  id: string;
+  kind: 'truck' | 'news' | 'influencer';
+  title: string;
+  body: string;
+  ts: string;
+  // Fields present only for kind === 'influencer'
+  platform?: 'instagram' | 'tiktok' | 'facebook' | 'youtube' | 'blog';
+  postUrl?: string;
+  thumbnailUrl?: string | null;
+  truckName?: string | null;
+  truckId?: string | null;
+  locationText?: string | null;
+  hashtags?: string[] | null;
+  sentiment?: 'positif' | 'neutre' | 'negatif' | null;
+  verified?: boolean;
+  handle?: string;
+}
 
 export const fetchFeed = async (): Promise<FeedPost[]> => {
   try {
