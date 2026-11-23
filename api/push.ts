@@ -6,10 +6,19 @@
 //   POST /api/push?action=test        (x-session-token) -> envoie un push de test a l'utilisateur
 //   POST /api/push?action=send_to_user (CRON_SECRET)    -> { user_id, title, body, url, truck_id }   (usage interne cron)
 
-// web-push est un module CommonJS sans export `default` -> createRequire pour l'importer en ESM
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const webpush: any = require('web-push');
+// web-push est publie a la fois en ESM (src/) et CJS (dist/), mais la detection auto Vercel
+// alterne selon la version du runtime. On evite le piege en faisant un lazy dynamic import()
+// au premier usage, ca marche dans les deux cas.
+let _webpush: any = null;
+const getWebPush = async (): Promise<any> => {
+  if (_webpush) return _webpush;
+  const mod: any = await import('web-push');
+  _webpush = mod?.default || mod;
+  if (VAPID_PUBLIC && VAPID_PRIVATE) {
+    try { _webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (e: any) { console.error('[push] vapid init:', e?.message); }
+  }
+  return _webpush;
+};
 
 const URL_ = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_KEY;
@@ -17,10 +26,6 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT || 'mailto:contact@letztrack.lu';
 const CRON_SECRET = process.env.CRON_SECRET;
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  try { webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC, VAPID_PRIVATE); } catch (e: any) { console.error('[push] vapid init:', e?.message); }
-}
 
 const sb = async (path: string, init: any = {}) => {
   const url = `${URL_}/rest/v1/${path}`;
@@ -49,7 +54,8 @@ const authUser = async (req: any): Promise<any | null> => {
 
 const sendToSub = async (sub: any, payload: any): Promise<{ ok: boolean; error?: string; gone?: boolean }> => {
   try {
-    await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload));
+    const wp = await getWebPush();
+    await wp.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, JSON.stringify(payload));
     return { ok: true };
   } catch (e: any) {
     const status = e?.statusCode;
