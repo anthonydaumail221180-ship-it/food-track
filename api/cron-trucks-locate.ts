@@ -34,6 +34,49 @@ const todayISODate = () => {
   return d.toISOString().slice(0, 10);
 };
 
+// --- Mode enrichissement : trouve les comptes IG/FB officiels des trucks via Gemini + Google Search.
+// Appele une seule fois en one-shot : POST /api/cron-trucks-locate?mode=enrich-socials avec Authorization: Bearer ${CRON_SECRET}
+const enrichSocials = async (ai: GoogleGenAI, truck: any): Promise<{ instagram?: string; facebook?: string } | null> => {
+  const prompt = `Trouve les comptes reseaux sociaux officiels du food truck suivant au Luxembourg :
+
+Nom : ${truck.name}
+Cuisine : ${truck.cuisine || 'inconnu'}
+Pays : Luxembourg
+
+TACHE : cherche sur Google leur compte Instagram et Facebook officiels. Retourne UNIQUEMENT du JSON :
+{
+  "instagram": "https://www.instagram.com/handle" ou null,
+  "facebook": "https://www.facebook.com/page" ou null,
+  "confidence": 0-100
+}
+
+Regles :
+- Si tu n'es pas sur a au moins 70%, retourne null plutot que de deviner
+- URLs completes (pas juste @handle)
+- Verifie que c'est bien le food truck luxembourgeois (pas un homonyme)`;
+
+  try {
+    const r = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { tools: [{ googleSearch: {} }], temperature: 0.1 },
+    });
+    const text = r.text || '';
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]);
+    if ((parsed.confidence || 0) < 70) return null;
+    const out: any = {};
+    if (parsed.instagram && String(parsed.instagram).startsWith('http')) out.instagram = parsed.instagram;
+    if (parsed.facebook && String(parsed.facebook).startsWith('http')) out.facebook = parsed.facebook;
+    if (!out.instagram && !out.facebook) return null;
+    return out;
+  } catch (e: any) {
+    console.error(`[enrich-socials] ${truck.name} failed:`, e?.message);
+    return null;
+  }
+};
+
 const todayFrLong = () => {
   const d = new Date();
   return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -131,6 +174,36 @@ export default async function handler(req: any, res: any) {
   const batchLimit = Math.max(1, Math.min(50, parseInt(String((req.query && req.query.limit) || '12'), 10) || 12));
   // Concurrence Gemini (5 en parallele tient dans 60s)
   const concurrency = 5;
+  // Mode d'operation : "locate" (defaut) ou "enrich-socials" (trouve IG/FB des trucks qui n'en ont pas)
+  const mode = String((req.query && req.query.mode) || 'locate').trim();
+
+  if (mode === 'enrich-socials') {
+    // Auth requise meme pour le cron (pas de header x-vercel-cron ici, c'est manuel)
+    if (!CRON_SECRET || token !== CRON_SECRET) return res.status(401).json({ error: 'unauthorized' });
+    const aiE = new GoogleGenAI({ apiKey: GEMINI_KEY });
+    const all = await sb(`trucks?select=id,name,cuisine,instagram,facebook&order=name.asc`);
+    const trucks = all.filter((t: any) => !t.instagram && !t.facebook).slice(0, batchLimit);
+    let enriched = 0;
+    const results: any[] = [];
+    for (let i = 0; i < trucks.length; i += concurrency) {
+      const slice = trucks.slice(i, i + concurrency);
+      await Promise.all(slice.map(async (t: any) => {
+        const r = await enrichSocials(aiE, t);
+        if (!r) { results.push({ name: t.name, found: false }); return; }
+        const update: any = {};
+        if (r.instagram && !t.instagram) update.instagram = r.instagram;
+        if (r.facebook && !t.facebook) update.facebook = r.facebook;
+        if (Object.keys(update).length) {
+          await sb(`trucks?id=eq.${t.id}`, { method: 'PATCH', body: JSON.stringify(update) });
+          enriched++;
+          results.push({ name: t.name, found: true, ...update });
+        } else {
+          results.push({ name: t.name, found: false });
+        }
+      }));
+    }
+    return res.status(200).json({ ok: true, mode: 'enrich-socials', total: trucks.length, enriched, results });
+  }
 
   const runId = `run_${Date.now()}`;
   const startedAt = new Date().toISOString();
