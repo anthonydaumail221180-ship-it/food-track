@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { truckImage } from '../services/truckImage';
 import { FoodTruck, MenuItem, CheckIn } from '../types';
 import { fetchTruckMenuAgent } from '../services/geminiService';
-import { MapPin, Star, Phone, Globe, Clock, ArrowLeft, Heart, Edit3, Utensils, Send, UserPlus, Navigation2 } from 'lucide-react';
+import { MapPin, Star, Phone, Globe, Clock, ArrowLeft, Heart, Edit3, Utensils, Send, UserPlus, Navigation2, Share2 } from 'lucide-react';
 
 interface TruckProfileProps {
   truck: FoodTruck;
@@ -12,9 +12,10 @@ interface TruckProfileProps {
   isFavorite: boolean;
   onCheckIn: (checkIn: CheckIn) => void;
   onNavigate?: (truck: FoodTruck) => void;
+  onShare?: (truck: FoodTruck) => void;
 }
 
-export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggleFavorite, isFavorite, onCheckIn, onNavigate }) => {
+export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggleFavorite, isFavorite, onCheckIn, onNavigate, onShare }) => {
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   
@@ -131,6 +132,15 @@ export const TruckProfile: React.FC<TruckProfileProps> = ({ truck, onBack, toggl
             <button onClick={onBack} className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition">
                 <ArrowLeft size={24} />
             </button>
+            {onShare && (
+                <button
+                    onClick={() => onShare(truck)}
+                    className="absolute top-4 right-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/30 transition"
+                    aria-label="Partager ce food truck"
+                >
+                    <Share2 size={22} />
+                </button>
+            )}
             <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
                 <div className="flex justify-between items-end gap-3">
                     <div className="min-w-0 flex-1">

@@ -25,6 +25,8 @@ import { getUserPosition } from './services/location';
 import { Home, Users, Trophy, Menu, MapPin, Utensils, Search, X, Navigation, User, Brain, Flame, Heart, Megaphone, Newspaper, ArrowRight, Coins, Truck } from 'lucide-react';
 import { TasteHistory } from './components/TasteHistory';
 import { NavChoiceModal } from './components/NavChoiceModal';
+import { ShareSheet } from './components/ShareSheet';
+import { buildTruckShare, ShareableContent } from './services/shareSocial';
 import { NavTarget } from './services/mapsNavigation';
 import { AppTour } from './components/AppTour';
 
@@ -325,7 +327,23 @@ const App: React.FC = () => {
             setReportTrucks(community);
             setLiveTrucks(liveOnly);
             // Ordre : LIVE d'abord (premium), puis signalements communautaires, puis BDD offline, puis statiques non dupliqués
-            setDisplayedTrucks([...liveOnly, ...community, ...offlineDb, ...filteredStatic]);
+            const mergedTrucks = [...liveOnly, ...community, ...offlineDb, ...filteredStatic];
+            setDisplayedTrucks(mergedTrucks);
+            // Deep-link : ?truck=<id> ouvre directement le profil du truck apres chargement.
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const sharedId = params.get('truck');
+                if (sharedId) {
+                    const normId = (s: string) => s.replace(/^(db-|live-)/, '');
+                    const match = mergedTrucks.find(t => normId(t.id) === normId(sharedId));
+                    if (match) {
+                        setSelectedTruck(match);
+                        setCurrentView(AppView.PROFILE);
+                    }
+                    // Nettoie l'URL pour ne pas re-ouvrir au prochain reload
+                    window.history.replaceState({}, '', window.location.pathname);
+                }
+            } catch { /* ignore */ }
         } catch (err) {
             console.error('Erreur chargement initial:', err);
         } finally {
@@ -457,6 +475,8 @@ const App: React.FC = () => {
   // --- Navigation Handlers ---
   // "Y aller" : ouvre un bottom sheet qui laisse l'utilisateur choisir son appli (Plan / Google Maps).
   const [navTarget, setNavTarget] = useState<NavTarget | null>(null);
+  const [shareContent, setShareContent] = useState<ShareableContent | null>(null);
+  const handleShareTruck = (truck: FoodTruck) => setShareContent(buildTruckShare(truck));
   const handleNavigateToTruck = (truck: FoodTruck) => {
     if (!truck.coordinates) {
       setToast('Emplacement inconnu pour ce truck.');
@@ -588,12 +608,13 @@ const App: React.FC = () => {
       }
 
       case AppView.HOME:
-        return <TruckList 
-                  trucks={displayedTrucks} 
-                  onNavigate={handleNavigateToTruck} 
+        return <TruckList
+                  trucks={displayedTrucks}
+                  onNavigate={handleNavigateToTruck}
                   onTruckClick={handleOpenProfile}
                   favorites={favorites}
                   toggleFavorite={toggleFavorite}
+                  onShare={handleShareTruck}
                   loading={loading}
                   userLocation={userLocation}
                   sources={sources}
@@ -630,6 +651,7 @@ const App: React.FC = () => {
                 isFavorite={favorites.includes(selectedTruck.id)}
                 onCheckIn={handleAddCheckIn}
                 onNavigate={handleNavigateToTruck}
+                onShare={handleShareTruck}
             />
         ) : <div />;
       case AppView.USER_PROFILE:
@@ -712,6 +734,9 @@ const App: React.FC = () => {
           truckId={selectedTruck?.id}
           onClose={() => setNavTarget(null)}
       />
+
+      {/* Share sheet : partage social */}
+      <ShareSheet content={shareContent} onClose={() => setShareContent(null)} />
 
       {/* Toast (remplace alert() bloquant) */}
       {toast && (

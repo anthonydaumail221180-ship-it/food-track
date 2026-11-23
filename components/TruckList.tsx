@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { truckImage } from '../services/truckImage';
 import { FoodTruck, CheckIn } from '../types';
-import { MapPin, Star, Navigation, Heart, Filter, ArrowDownUp, ExternalLink, Clock, Search, X } from 'lucide-react';
+import { MapPin, Star, Navigation, Heart, Filter, ArrowDownUp, ExternalLink, Clock, Search, X, Share2 } from 'lucide-react';
 import { AdBanner } from './AdBanner';
 
 interface TruckListProps {
@@ -11,6 +11,7 @@ interface TruckListProps {
   onTruckClick: (truck: FoodTruck) => void;
   favorites: string[];
   toggleFavorite: (id: string) => void;
+  onShare?: (truck: FoodTruck) => void;
   loading: boolean;
   userLocation: { lat: number; lng: number } | null;
   sources: string[];
@@ -41,7 +42,7 @@ const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => 
     return R * c;
 }
 
-export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruckClick, favorites, toggleFavorite, loading, userLocation, sources, history }) => {
+export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruckClick, favorites, toggleFavorite, onShare, loading, userLocation, sources, history }) => {
   const [sortBy, setSortBy] = useState<'default' | 'distance'>('default');
   const [search, setSearch] = useState('');
   const [recentViews, setRecentViews] = useState<string[]>(() => loadRecentViews());
@@ -230,18 +231,30 @@ export const TruckList: React.FC<TruckListProps> = ({ trucks, onNavigate, onTruc
                             </div>
                         </div>
                     </div>
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(truck.id);
-                        }}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-white hover:bg-gray-50 transition shadow-sm border border-gray-100"
-                    >
-                        <Heart 
-                            size={18} 
-                            className={isFav ? "text-brand-red fill-brand-red" : "text-gray-300"} 
-                        />
-                    </button>
+                    <div className="absolute top-4 right-4 flex flex-col gap-2">
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(truck.id);
+                            }}
+                            className="p-2 rounded-full bg-white hover:bg-gray-50 transition shadow-sm border border-gray-100"
+                            aria-label="Favori"
+                        >
+                            <Heart
+                                size={18}
+                                className={isFav ? "text-brand-red fill-brand-red" : "text-gray-300"}
+                            />
+                        </button>
+                        {onShare && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onShare(truck); }}
+                                className="p-2 rounded-full bg-white hover:bg-gray-50 transition shadow-sm border border-gray-100"
+                                aria-label="Partager"
+                            >
+                                <Share2 size={16} className="text-brand-blue" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             );
         })}
