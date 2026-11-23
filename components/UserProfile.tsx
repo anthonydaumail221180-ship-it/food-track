@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserProfile as UserProfileType } from '../types';
 import { Edit2, MapPin, Bell, LogOut, ArrowLeft, Save, X, Camera, ShieldCheck, Globe, Check, UserPlus } from 'lucide-react';
 import { COUNTRY_CODES, FOOD_AVATARS, LANGUAGES } from './Onboarding';
@@ -29,9 +29,43 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
         language: user.language || 'fr'
     });
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
-    const [pushOn, setPushOn] = useState<boolean>(() => isPushEnabled());
+    // Par defaut, on affiche le switch ON (optimiste) : l'auto-subscribe va tenter d'activer
+    // au mount. S'il echoue (permission denied, iOS non-PWA, etc.), le switch flippe en OFF.
+    const [pushOn, setPushOn] = useState<boolean>(() => {
+        if (!pushSupported()) return false;
+        if (pushPermission() === 'denied') return false;
+        if (isPushEnabled()) return true;
+        // Pas encore abonne : on montre ON par defaut pour inciter, l'auto-subscribe confirmera
+        try { if (localStorage.getItem('letztrack_push_user_opted_out') === '1') return false; } catch {}
+        return true;
+    });
     const [pushBusy, setPushBusy] = useState(false);
     const [pushMsg, setPushMsg] = useState<string | null>(null);
+
+    // Auto-subscribe au premier affichage du profil si pas encore abonne et pas explicitement refuse.
+    // Le navigateur affichera son prompt natif de permission.
+    useEffect(() => {
+        if (!pushSupported()) return;
+        if (pushPermission() === 'denied') { setPushOn(false); return; }
+        if (isPushEnabled()) { setPushOn(true); return; }
+        try { if (localStorage.getItem('letztrack_push_user_opted_out') === '1') { setPushOn(false); return; } } catch {}
+        // Pas encore abonne : on tente
+        (async () => {
+            setPushBusy(true);
+            try {
+                const r = await subscribeToPush();
+                if (r.ok) { setPushOn(true); setPushMsg('Notifications activées — vous serez alerté quand un favori passe LIVE.'); }
+                else { setPushOn(false); if (r.reason === 'denied') setPushMsg('Permissions refusées. Débloquez-les dans les réglages du site pour activer.'); }
+            } catch (e: any) {
+                setPushOn(false);
+                console.error('[push] auto-subscribe err', e);
+            } finally {
+                setPushBusy(false);
+                setTimeout(() => setPushMsg(null), 8000);
+            }
+        })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const togglePush = async () => {
         setPushBusy(true);
@@ -40,8 +74,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
             if (pushOn) {
                 try { await unsubscribeFromPush(); } catch (e: any) { console.error('[push] unsub err', e); }
                 setPushOn(false);
+                // On memorise le refus explicite pour ne pas re-prompter automatiquement a la prochaine ouverture
+                try { localStorage.setItem('letztrack_push_user_opted_out', '1'); } catch {}
                 setPushMsg('Notifications désactivées.');
             } else {
+                // User reactive apres avoir opt-out : on efface le flag
+                try { localStorage.removeItem('letztrack_push_user_opted_out'); } catch {}
                 let r: { ok: boolean; reason?: string };
                 try {
                     r = await subscribeToPush();
