@@ -6,7 +6,10 @@
 //   POST /api/push?action=test        (x-session-token) -> envoie un push de test a l'utilisateur
 //   POST /api/push?action=send_to_user (CRON_SECRET)    -> { user_id, title, body, url, truck_id }   (usage interne cron)
 
-import webpush from 'web-push';
+// web-push est un module CommonJS sans export `default` -> createRequire pour l'importer en ESM
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const webpush: any = require('web-push');
 
 const URL_ = process.env.SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_KEY;

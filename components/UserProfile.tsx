@@ -38,17 +38,36 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
         setPushMsg(null);
         try {
             if (pushOn) {
-                await unsubscribeFromPush();
+                try { await unsubscribeFromPush(); } catch (e: any) { console.error('[push] unsub err', e); }
                 setPushOn(false);
                 setPushMsg('Notifications désactivées.');
             } else {
-                const r = await subscribeToPush();
-                if (r.ok) { setPushOn(true); setPushMsg('Vous recevrez une notif quand un truck favori sera en LIVE 👋'); }
-                else if (r.reason === 'denied') setPushMsg('Permissions refusées. Débloquez-les dans les réglages du navigateur.');
-                else if (r.reason === 'unsupported') setPushMsg('Votre navigateur ne supporte pas les notifications push.');
-                else setPushMsg('Impossible d\'activer les notifications.');
+                let r: { ok: boolean; reason?: string };
+                try {
+                    r = await subscribeToPush();
+                } catch (e: any) {
+                    console.error('[push] subscribe exception', e);
+                    r = { ok: false, reason: 'exception' };
+                    setPushMsg(`Erreur push : ${e?.message || e}`);
+                }
+                if (r.ok) {
+                    setPushOn(true);
+                    setPushMsg('Notifications activées — vous serez alerté quand un favori passe LIVE.');
+                } else if (r.reason === 'denied') {
+                    setPushMsg('Permissions refusées. Débloquez-les dans les réglages du site.');
+                } else if (r.reason === 'unsupported') {
+                    setPushMsg('Notifications push non supportées sur ce navigateur. Sur iPhone : installe l\'app sur l\'écran d\'accueil (Partager → Sur l\'écran d\'accueil) puis réessaie.');
+                } else if (r.reason === 'no_vapid_key') {
+                    setPushMsg('Configuration serveur incomplète (VAPID). Contacte l\'admin.');
+                } else if (!r.reason) {
+                    setPushMsg('Activation impossible. Réessaie ou vérifie les permissions.');
+                }
             }
-        } finally { setPushBusy(false); setTimeout(() => setPushMsg(null), 4000); }
+        } finally {
+            setPushBusy(false);
+            // Message reste 8s au lieu de 4s pour qu'on ait le temps de le lire
+            setTimeout(() => setPushMsg(null), 8000);
+        }
     };
 
     const handleTestPush = async () => {
