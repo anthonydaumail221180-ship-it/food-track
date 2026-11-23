@@ -244,8 +244,43 @@ export default async function handler(req: any, res: any) {
   let failed = 0;
   const results: any[] = [];
 
+  // Notifie les users qui ont favorise ce truck quand il passe LIVE (transition only).
+  const notifyFavoritersOfTruckLive = async (truck: any, address: string) => {
+    try {
+      const favs = await sb(`user_favorites?truck_id=eq.${encodeURIComponent(truck.id)}&select=user_id`);
+      if (!favs.length) return 0;
+      const host = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_SITE_URL || '';
+      const base = host ? (host.startsWith('http') ? host : `https://${host}`) : '';
+      let pushed = 0;
+      await Promise.all(favs.map(async (f: any) => {
+        try {
+          const r = await fetch(`${base}/api/push?action=send_to_user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${CRON_SECRET || ''}` },
+            body: JSON.stringify({
+              user_id: f.user_id,
+              title: `${truck.name} est en LIVE !`,
+              body: `Emplacement du jour : ${address}`,
+              url: `/?truck=${truck.id}`,
+              truck_id: truck.id,
+              kind: 'fav_live',
+              tag: `fav_live_${truck.id}`,
+            }),
+          });
+          if (r.ok) pushed++;
+        } catch {}
+      }));
+      return pushed;
+    } catch { return 0; }
+  };
+
   const processTruck = async (t: any) => {
     try {
+      // On garde l'ancien etat pour detecter la transition offline -> LIVE
+      const wasLive = !!t.today_is_live;
+      const lastDetected = t.today_detected_at ? new Date(t.today_detected_at).getTime() : 0;
+      const hoursSinceLast = lastDetected ? (Date.now() - lastDetected) / 3600000 : 999;
+
       const d = await detectOneTruck(ai, t);
       if (!d) { failed++; return; }
 
@@ -268,7 +303,13 @@ export default async function handler(req: any, res: any) {
       };
       await sb(`trucks?id=eq.${t.id}`, { method: 'PATCH', body: JSON.stringify(update) });
       detected++;
-      results.push({ id: t.id, name: t.name, is_live: update.today_is_live, address: update.today_address, confidence: update.today_confidence });
+
+      // Push aux favoriteurs : si transition wasLive=false -> isLive=true avec confiance >= 60, ou si pas de push depuis >12h
+      let pushed = 0;
+      if (update.today_is_live && (update.today_confidence || 0) >= 60 && (!wasLive || hoursSinceLast > 12)) {
+        pushed = await notifyFavoritersOfTruckLive(t, update.today_address || 'Voir la carte');
+      }
+      results.push({ id: t.id, name: t.name, is_live: update.today_is_live, address: update.today_address, confidence: update.today_confidence, pushed });
     } catch (e: any) {
       failed++;
       console.error(`[cron-locate] truck ${t.name} failed:`, e?.message);

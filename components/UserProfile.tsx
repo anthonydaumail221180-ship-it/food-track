@@ -4,6 +4,7 @@ import { UserProfile as UserProfileType } from '../types';
 import { Edit2, MapPin, Bell, LogOut, ArrowLeft, Save, X, Camera, ShieldCheck, Globe, Check, UserPlus } from 'lucide-react';
 import { COUNTRY_CODES, FOOD_AVATARS, LANGUAGES } from './Onboarding';
 import { updateMe } from '../services/userAuth';
+import { pushSupported, pushPermission, isPushEnabled, subscribeToPush, unsubscribeFromPush, sendTestPush } from '../services/pushNotif';
 
 interface UserProfileProps {
     user: UserProfileType;
@@ -28,6 +29,35 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
         language: user.language || 'fr'
     });
     const [showAvatarSelector, setShowAvatarSelector] = useState(false);
+    const [pushOn, setPushOn] = useState<boolean>(() => isPushEnabled());
+    const [pushBusy, setPushBusy] = useState(false);
+    const [pushMsg, setPushMsg] = useState<string | null>(null);
+
+    const togglePush = async () => {
+        setPushBusy(true);
+        setPushMsg(null);
+        try {
+            if (pushOn) {
+                await unsubscribeFromPush();
+                setPushOn(false);
+                setPushMsg('Notifications désactivées.');
+            } else {
+                const r = await subscribeToPush();
+                if (r.ok) { setPushOn(true); setPushMsg('Vous recevrez une notif quand un truck favori sera en LIVE 👋'); }
+                else if (r.reason === 'denied') setPushMsg('Permissions refusées. Débloquez-les dans les réglages du navigateur.');
+                else if (r.reason === 'unsupported') setPushMsg('Votre navigateur ne supporte pas les notifications push.');
+                else setPushMsg('Impossible d\'activer les notifications.');
+            }
+        } finally { setPushBusy(false); setTimeout(() => setPushMsg(null), 4000); }
+    };
+
+    const handleTestPush = async () => {
+        setPushBusy(true);
+        const ok = await sendTestPush();
+        setPushMsg(ok ? 'Notif test envoyée !' : 'Erreur d\'envoi.');
+        setPushBusy(false);
+        setTimeout(() => setPushMsg(null), 4000);
+    };
 
     const isImage = (str: string) => str.startsWith('data:image') || str.startsWith('http');
 
@@ -275,8 +305,40 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onBack, onLogout
                             </button>
                         )}
 
+                        {!isEditing && pushSupported() && (
+                            <div className="bg-white rounded-2xl p-4 border border-brand-border">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${pushOn ? 'bg-brand-gradient text-white' : 'bg-gray-100 text-gray-500'}`}>
+                                            <Bell size={18} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="font-bold text-sm text-brand-text">Notifications push</p>
+                                            <p className="text-xs text-brand-muted leading-tight">Alerte quand un favori passe LIVE</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={togglePush}
+                                        disabled={pushBusy || pushPermission() === 'denied'}
+                                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition flex-shrink-0 ${pushOn ? 'bg-brand-orange' : 'bg-gray-300'} ${pushBusy ? 'opacity-50' : ''}`}
+                                    >
+                                        <span className={`inline-block h-5 w-5 rounded-full bg-white transition-transform ${pushOn ? 'translate-x-6' : 'translate-x-1'}`} />
+                                    </button>
+                                </div>
+                                {pushOn && (
+                                    <button onClick={handleTestPush} disabled={pushBusy} className="mt-3 text-xs text-brand-blue font-bold hover:underline">
+                                        Envoyer une notif de test
+                                    </button>
+                                )}
+                                {pushPermission() === 'denied' && (
+                                    <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 rounded-lg px-2 py-1">Permissions bloquées — à débloquer dans les réglages du site.</p>
+                                )}
+                                {pushMsg && <p className="mt-2 text-[11px] text-brand-text">{pushMsg}</p>}
+                            </div>
+                        )}
+
                         {!isEditing && (
-                            <button 
+                            <button
                                 onClick={onLogout}
                                 className="w-full py-4 text-red-500 font-bold text-sm flex items-center justify-center gap-2 bg-red-50 rounded-xl hover:bg-red-100 transition"
                             >
